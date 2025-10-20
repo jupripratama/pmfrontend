@@ -1,10 +1,13 @@
 import React from 'react';
 import { useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
+import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
+import CallRecordsPage from './components/CallRecordsPage';
 
 function App() {
   const { user, isLoading } = useAuth();
+  const [activeTab, setActiveTab] = React.useState('dashboard');
 
   if (isLoading) {
     return (
@@ -14,7 +17,26 @@ function App() {
     );
   }
 
-  return user ? <Dashboard /> : <Login />;
+  if (!user) {
+    return <Login />;
+  }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'callrecords':
+        return <CallRecordsPage />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return (
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {renderContent()}
+    </Layout>
+  );
 }
 
 export default App;

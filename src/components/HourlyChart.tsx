@@ -84,7 +84,7 @@ const HourlyChart: React.FC<HourlyChartProps> = ({ hourlyData }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <Bar options={options} data={data} />
     </div>
   );
