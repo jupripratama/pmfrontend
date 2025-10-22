@@ -26,10 +26,14 @@ api.interceptors.request.use(
 export const authApi = {
   login: async (credentials: LoginRequest) => {
     const response = await api.post('/auth/login', credentials);
-    const token = response.data.data.token;
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('user', JSON.stringify(response.data.data.user));
-    return response.data.data;
+    const data = response.data.data;
+    
+    // Simpan token dan user data
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('permissions', JSON.stringify(data.permissions)); // Simpan permissions terpisah
+    
+    return data;
   },
 
   getProfile: async (): Promise<User> => {
@@ -37,17 +41,30 @@ export const authApi = {
     return response.data.data;
   },
 
+  getPermissions: (): string[] => {
+    const permissionsStr = localStorage.getItem('permissions');
+    return permissionsStr ? JSON.parse(permissionsStr) : [];
+  },
+
   logout: () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('permissions');
   }
 };
 
 export const callRecordApi = {
   // Get daily summary untuk tanggal tertentu
-  getDailySummary: async (date: string): Promise<DailySummary> => {
-    const response = await api.get(`/call-records/summary/daily/${date}`);
-    return response.data.data;
+ getDailySummary: async (date: string): Promise<DailySummary> => {
+    try {
+      console.log('📡 API Call: getDailySummary', { date });
+      const response = await api.get(`/call-records/summary/daily/${date}`);
+      console.log('📊 Daily Summary Response:', response.data);
+      return response.data.data;
+    } catch (error: any) {
+      console.error('❌ Error loading daily summary:', error);
+      throw error;
+    }
   },
 
   // Get overall summary dengan range tanggal
@@ -59,27 +76,42 @@ export const callRecordApi = {
   // Get call records dengan pagination dan filtering
   getCallRecords: async (startDate: string, endDate: string, pageSize: number = 1000): Promise<CallRecord[]> => {
     try {
+      console.log('📡 API Call: getCallRecords', { startDate, endDate });
       const response = await api.get(`/call-records?startDate=${startDate}&endDate=${endDate}&pageSize=${pageSize}`);
       
-      console.log('Full API Response:', response.data);
+      console.log('📊 Full API Response:', response.data);
       
-      // Cek berbagai kemungkinan struktur
-      const responseData = response.data;
-      
-      if (responseData.data?.items) {
-        return responseData.data.items;
-      } else if (responseData.items) {
-        return responseData.items;
-      } else if (responseData.data) {
-        return responseData.data;
+      // Debug: log struktur lengkap
+      console.log('🔍 Response structure:', {
+        data: response.data,
+        hasData: !!response.data,
+        hasDataData: !!response.data?.data,
+        hasDataDataData: !!response.data?.data?.data,
+        isArray: Array.isArray(response.data?.data?.data)
+      });
+
+      // Handle berdasarkan struktur response yang sesuai
+      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        console.log('✅ Using response.data.data.data (array)');
+        return response.data.data.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        console.log('✅ Using response.data.data (array)');
+        return response.data.data;
+      } else if (Array.isArray(response.data)) {
+        console.log('✅ Using direct array response');
+        return response.data;
       } else {
-        return responseData;
+        console.warn('❓ Unknown response structure, returning empty array');
+        console.log('📋 Available keys:', Object.keys(response.data || {}));
+        return [];
       }
-    } catch (error) {
-      console.error('Error fetching call records:', error);
-      return [];
+    } catch (error: any) {
+      console.error('❌ Error fetching call records:', error);
+      console.error('Error response:', error.response?.data);
+      throw error;
     }
   },
+
 
   // Import CSV file
   importCsv: async (file: File): Promise<UploadCsvResponse> => {
@@ -160,7 +192,40 @@ export const callRecordApi = {
 
   // Delete call records untuk tanggal tertentu
   deleteCallRecords: async (date: string): Promise<boolean> => {
-    const response = await api.delete(`/call-records/${date}`);
-    return response.data.data.deleted;
-  }
+    try {
+      console.log('🗑️ Delete API call for date:', date);
+      
+      const response = await api.delete(`/call-records/${date}`);
+      
+      console.log('📊 Delete API Response:', response.data);
+      
+      // Handle response structure berdasarkan BE update
+      if (response.data?.data?.deleted !== undefined) {
+        return response.data.data.deleted;
+      } else if (response.data?.deleted !== undefined) {
+        return response.data.deleted;
+      } else {
+        console.warn('❓ Unknown delete response structure:', response.data);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('❌ Error deleting records:', error);
+      console.error('Error response:', error.response?.data);
+      
+      // Handle error messages dari BE
+      const errorMessage = error.response?.data?.message || error.message;
+      
+      if (error.response?.status === 403) {
+        alert('Access denied: You do not have permission to delete call records');
+      } else if (error.response?.status === 401) {
+        alert('Authentication required: Please login again');
+      } else if (errorMessage) {
+        alert(`Error: ${errorMessage}`);
+      } else {
+        alert('Error deleting call records');
+      }
+      
+      throw error;
+    }
+  },
 };

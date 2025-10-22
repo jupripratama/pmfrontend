@@ -1,55 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  BarChart3, 
-  Upload, 
-  Download, 
-  User, 
-  LogOut,
-  Phone,
-  Menu,
-  X,
-  Bell,
-  Settings,
-  Search
-} from 'lucide-react';
-import '../styles/Navbar.css';
+import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  onExport: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onExport }) => {
+const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
-
-  const menuItems = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: BarChart3,
-    },
-    {
-      id: 'callrecords',
-      label: 'Call Records',
-      icon: Phone,
-    },
-    {
-      id: 'upload',
-      label: 'Data Upload',
-      icon: Upload,
-    }
-  ];
+  const [isCallRecordsDropdownOpen, setIsCallRecordsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
-        setIsProfileDropdownOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCallRecordsDropdownOpen(false);
       }
     };
 
@@ -57,220 +25,165 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onExport }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleProfileClick = () => {
-    setActiveTab('profile');
-    setIsProfileDropdownOpen(false);
+  const mainMenuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  ];
+
+  const callRecordsMenuItems = [
+    { id: 'callrecords', label: 'View Records', icon: Phone },
+    { id: 'upload', label: 'Upload CSV', icon: Upload },
+    { id: 'export', label: 'Export Data', icon: Download },
+  ];
+
+  const handleMenuClick = (menuId: string) => {
+    setActiveTab(menuId);
+    setIsMobileMenuOpen(false);
+    setIsCallRecordsDropdownOpen(false);
   };
 
   return (
-    <>
-      {/* Navigation Bar */}
-      <nav className="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme">
-        <div className="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-          <button 
-            className="nav-link nav-link-hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-          </button>
-        </div>
+    <nav className="bg-white shadow-lg border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          {/* Left side - Logo and main menu */}
+          <div className="flex items-center">
+            {/* Logo */}
+            <div className="flex-shrink-0 flex items-center">
+              <BarChart3 className="w-8 h-8 text-blue-600" />
+              <span className="ml-2 text-xl font-bold text-gray-900">Call Analytics</span>
+            </div>
 
-        <div className="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-          {/* Search Bar */}
-          <div className="navbar-nav align-items-center">
-            <div className="nav-item d-flex align-items-center">
-              <div className="input-group input-group-merge">
-                <span className="input-group-text">
-                  <Search className="w-4 h-4 text-muted" />
-                </span>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search..."
-                  aria-label="Search..."
-                />
+            {/* Desktop Menu */}
+            <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
+              {/* Main Menu Items */}
+              {mainMenuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === item.id
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 mr-2" />
+                  {item.label}
+                </button>
+              ))}
+
+              {/* Call Records Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsCallRecordsDropdownOpen(!isCallRecordsDropdownOpen)}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab.startsWith('callrecords') || activeTab === 'upload' || activeTab === 'export'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  Call Records
+                  <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${
+                    isCallRecordsDropdownOpen ? 'rotate-180' : ''
+                  }`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isCallRecordsDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                    {callRecordsMenuItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleMenuClick(item.id)}
+                        className={`flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors ${
+                          activeTab === item.id ? 'bg-blue-50 text-blue-700' : ''
+                        }`}
+                      >
+                        <item.icon className="w-4 h-4 mr-3" />
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <ul className="navbar-nav flex-row align-items-center ms-auto">
-            {/* Notification Bell */}
-            <li className="nav-item navbar-dropdown dropdown-notifications dropdown">
-              <button className="nav-link btn btn-text-secondary rounded-pill btn-icon dropdown-toggle hide-arrow">
-                <Bell className="w-4 h-4" />
-                <span className="badge bg-danger badge-dot"></span>
-              </button>
-            </li>
-
-            {/* User Profile Dropdown */}
-            <li className="nav-item navbar-dropdown dropdown-user dropdown">
-              <div className="nav-link dropdown-toggle hide-arrow" ref={profileDropdownRef}>
-                <button 
-                  className="btn btn-text-secondary rounded-pill btn-icon dropdown-toggle"
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                >
-                  <div className="avatar avatar-online">
-                    <div 
-                      className="w-8 h-8 rounded-full bg-primary d-flex items-center justify-center text-white font-semibold text-sm"
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        backgroundColor: '#4f46e5',
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {user?.fullName?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Dropdown Menu */}
-                {isProfileDropdownOpen && (
-                  <div 
-                    className="dropdown-menu dropdown-menu-end"
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: 0,
-                      background: '#fff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '0.5rem',
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                      minWidth: '200px',
-                      zIndex: 1000,
-                      marginTop: '0.5rem'
-                    }}
-                  >
-                    <div className="dropdown-header">
-                      <div className="d-flex">
-                        <div className="flex-shrink-0 me-3">
-                          <div className="avatar avatar-online">
-                            <div 
-                              className="w-8 h-8 rounded-full bg-primary d-flex items-center justify-center text-white font-semibold text-sm"
-                              style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                backgroundColor: '#4f46e5',
-                                color: 'white',
-                                fontWeight: 600,
-                                fontSize: '0.875rem'
-                              }}
-                            >
-                              {user?.fullName?.charAt(0).toUpperCase() || 'U'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-grow-1">
-                          <span className="fw-semibold d-block">{user?.fullName}</span>
-                          <small className="text-muted">{user?.roleName}</small>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="dropdown-divider"></div>
-                    <button 
-                      className="dropdown-item"
-                      onClick={handleProfileClick}
-                    >
-                      <User className="w-4 h-4 me-2" />
-                      <span>Profile</span>
-                    </button>
-                    <button className="dropdown-item">
-                      <Settings className="w-4 h-4 me-2" />
-                      <span>Settings</span>
-                    </button>
-                    <div className="dropdown-divider"></div>
-                    <button 
-                      className="dropdown-item"
-                      onClick={logout}
-                    >
-                      <LogOut className="w-4 h-4 me-2" />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                )}
+          {/* Right side - User profile and mobile menu button */}
+          <div className="flex items-center">
+            {/* User Profile */}
+            <div className="flex items-center space-x-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
+                <p className="text-xs text-gray-500">{user?.roleName}</p>
               </div>
-            </li>
-          </ul>
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <button
+                onClick={logout}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden ml-4">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              >
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
         </div>
-      </nav>
 
-      {/* Sidebar Navigation */}
-      <aside className={`layout-menu menu-vertical menu bg-menu-theme ${isMobileMenuOpen ? 'menu-open' : ''}`}>
-        {/* App Brand */}
-        <div className="app-brand demo">
-          <a href="#" className="app-brand-link">
-            <span className="app-brand-logo demo">
-              <BarChart3 className="w-6 h-6 text-primary" />
-            </span>
-            <span className="app-brand-text demo menu-text fw-bolder ms-2">Call Analytics</span>
-          </a>
-        </div>
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-gray-200 py-2">
+            {/* Main Menu Items */}
+            {mainMenuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleMenuClick(item.id)}
+                className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  activeTab === item.id
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <item.icon className="w-5 h-5 mr-3" />
+                {item.label}
+              </button>
+            ))}
 
-        <div className="menu-inner-shadow"></div>
-
-        {/* Navigation Items */}
-        <ul className="menu-inner py-1">
-          {/* Dashboard */}
-          <li className="menu-item">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`menu-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-            >
-              <BarChart3 className="w-4 h-4 me-2" />
-              <div data-i18n="Dashboard">Dashboard</div>
-            </button>
-          </li>
-
-          {/* Call Records */}
-          <li className="menu-item">
-            <button
-              onClick={() => setActiveTab('callrecords')}
-              className={`menu-link ${activeTab === 'callrecords' ? 'active' : ''}`}
-            >
-              <Phone className="w-4 h-4 me-2" />
-              <div data-i18n="Call Records">Call Records</div>
-            </button>
-          </li>
-
-          {/* Data Upload */}
-          <li className="menu-item">
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`menu-link ${activeTab === 'upload' ? 'active' : ''}`}
-            >
-              <Upload className="w-4 h-4 me-2" />
-              <div data-i18n="Data Upload">Data Upload</div>
-            </button>
-          </li>
-
-          {/* Export Section */}
-          <li className="menu-header small text-uppercase">
-            <span className="menu-header-text">Tools</span>
-          </li>
-          <li className="menu-item">
-            <button
-              onClick={onExport}
-              className="menu-link"
-            >
-              <Download className="w-4 h-4 me-2" />
-              <div data-i18n="Export CSV">Export CSV</div>
-            </button>
-          </li>
-        </ul>
-      </aside>
-
-      {/* Overlay for mobile */}
-      {isMobileMenuOpen && (
-        <div 
-          className="layout-menu-overlay d-block d-xl-none"
-          onClick={() => setIsMobileMenuOpen(false)}
-        ></div>
-      )}
-    </>
+            {/* Call Records Menu Items */}
+            <div className="border-t border-gray-200 mt-2 pt-2">
+              <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Call Records
+              </div>
+              {callRecordsMenuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    activeTab === item.id
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 mr-3" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
   );
 };
 

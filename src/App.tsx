@@ -4,6 +4,8 @@ import Login from './components/Login';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CallRecordsPage from './components/CallRecordsPage';
+import UploadPage from './components/UploadPage';
+import ExportPage from './components/ExportPage';
 
 function App() {
   const { user, isLoading } = useAuth();
@@ -27,6 +29,10 @@ function App() {
         return <Dashboard />;
       case 'callrecords':
         return <CallRecordsPage />;
+      case 'upload':
+        return <UploadPage onBack={() => setActiveTab('dashboard')} />;
+      case 'export':
+        return <ExportPage onBack={() => setActiveTab('dashboard')} />;
       default:
         return <Dashboard />;
     }
