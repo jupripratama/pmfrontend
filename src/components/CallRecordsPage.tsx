@@ -809,130 +809,92 @@ const CallRecordsSection: React.FC<{
         )}
       </div>
 
-      {/* Records Table */}
+     {/* Records Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Call Records Data</h3>
-              <p className="text-sm text-gray-600 mt-1">
+        <div className="px-4 py-3 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base lg:text-lg font-semibold text-gray-900 truncate">
+                Call Records Data
+              </h3>
+              <p className="text-xs text-gray-600 mt-1 truncate">
                 Showing {records.length} of {totalRecords.toLocaleString()} records
                 {searchTerm && ` • Searching for "${searchTerm}"`}
-                {filterReason !== 'all' && ` • Filtered by ${getCloseReasonText(filterReason as number)}`}
-                {filterHour !== 'all' && ` • Hour ${filterHour}`}
               </p>
             </div>
             
-            {/* Pagination Info */}
-            <div className="mt-2 lg:mt-0">
-              <span className="text-sm text-gray-600">
+            <div className="flex-shrink-0">
+              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                 Page {currentPage} of {totalPages}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Table Container dengan max-width */}
+        <div className="overflow-x-auto max-w-full">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <button
-                    onClick={() => onSort('calldate')}
-                    className="flex items-center space-x-1 hover:text-gray-700"
-                  >
-                    <span>Date</span>
-                    {sortBy === 'calldate' && (
-                      sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </th> */}
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <button
-                    onClick={() => onSort('calltime')}
-                    className="flex items-center space-x-1 hover:text-gray-700"
-                  >
-                    <span>Time</span>
-                    {sortBy === 'calltime' && (
-                      sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Time
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <button
-                    onClick={() => onSort('callclosereason')}
-                    className="flex items-center space-x-1 hover:text-gray-700"
-                  >
-                    <span>Close Reason</span>
-                    {sortBy === 'callclosereason' && (
-                      sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Reason Code
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <button
-                    onClick={() => onSort('hourgroup')}
-                    className="flex items-center space-x-1 hover:text-gray-700"
-                  >
-                    <span>Hour Group</span>
-                    {sortBy === 'hourgroup' && (
-                      sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  Description
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Hour
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center">
+                  <td colSpan={4} className="px-4 py-8 text-center">
                     <div className="flex justify-center items-center space-x-2">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                      <span className="text-gray-500">Loading records...</span>
+                      <span className="text-gray-500 text-sm">Loading records...</span>
                     </div>
                   </td>
                 </tr>
               ) : records.length > 0 ? (
                 records.map((record, index) => (
                   <tr key={`${record.callRecordId}-${index}`} className="hover:bg-gray-50 transition-colors">
-                    {/* <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                      {record.callDate || 'N/A'}
-                    </td> */}
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-600 font-mono">
                       {record.callTime}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono bg-gray-50 rounded">
+                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-900 font-mono bg-gray-50 rounded text-center">
                       {record.callCloseReason}
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="max-w-xs">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
-                          record.callCloseReason === 0 ? 'bg-red-100 text-red-800 border-red-200' :
-                          record.callCloseReason === 1 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                          'bg-green-100 text-green-800 border-green-200'
-                        }`}>
-                          {getCloseReasonText(record.callCloseReason)}
-                        </span>
-                        <div className="mt-1 text-xs text-gray-600">
-                          {getCloseReasonDescription(record.callCloseReason)}
-                        </div>
+                    <td className="px-3 py-3 text-xs max-w-[150px]">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${
+                        record.callCloseReason === 0 ? 'bg-red-100 text-red-800 border-red-200' :
+                        record.callCloseReason === 1 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                        'bg-green-100 text-green-800 border-green-200'
+                      }`}>
+                        {getCloseReasonText(record.callCloseReason)}
+                      </span>
+                      <div className="mt-1 text-gray-600 line-clamp-2">
+                        {getCloseReasonDescription(record.callCloseReason)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                        Hour {record.hourGroup}
+                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-900 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        H{record.hourGroup}
                       </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center justify-center">
-                      <Phone className="w-16 h-16 mb-4 text-gray-300" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">No call records found</p>
-                      <p className="text-sm text-gray-600 max-w-md">
+                  <td colSpan={4} className="px-4 py-8 text-center">
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <Phone className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-sm font-medium text-gray-900 mb-1">No call records found</p>
+                      <p className="text-xs text-gray-600 text-center max-w-xs">
                         {searchTerm || filterReason !== 'all' || filterHour !== 'all' 
                           ? 'No records match your search or filter criteria.' 
                           : 'No data available for the selected date.'
@@ -946,64 +908,49 @@ const CallRecordsSection: React.FC<{
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Pagination yang lebih compact */}
         {totalPages > 1 && (
-          <div className="bg-white px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+          <div className="bg-white px-4 py-3 border-t border-gray-200">
+            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
+              <div className="text-xs text-gray-700 text-center xs:text-left">
                 Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                <span className="font-medium">
-                  {Math.min(currentPage * pageSize, totalRecords)}
-                </span> of{' '}
-                <span className="font-medium">{totalRecords.toLocaleString()}</span> results
+                <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> of{' '}
+                <span className="font-medium">{totalRecords.toLocaleString()}</span>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center space-x-1">
                 <button
                   onClick={() => onPageChange(currentPage - 1)}
                   disabled={!hasPrevious}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="p-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Previous
+                  <ChevronLeft className="w-3 h-3" />
                 </button>
                 
                 <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
+                  {[currentPage - 1, currentPage, currentPage + 1]
+                    .filter(page => page >= 1 && page <= totalPages)
+                    .map(page => (
                       <button
-                        key={pageNum}
-                        onClick={() => onPageChange(pageNum)}
-                        className={`px-3 py-2 border text-sm font-medium ${
-                          currentPage === pageNum
+                        key={page}
+                        onClick={() => onPageChange(page)}
+                        className={`px-2 py-1 border text-xs font-medium min-w-[32px] ${
+                          currentPage === page
                             ? 'border-blue-500 bg-blue-500 text-white'
                             : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                        } rounded-md`}
+                        } rounded`}
                       >
-                        {pageNum}
+                        {page}
                       </button>
-                    );
-                  })}
+                    ))}
                 </div>
                 
                 <button
                   onClick={() => onPageChange(currentPage + 1)}
                   disabled={!hasNext}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="p-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                  <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
             </div>

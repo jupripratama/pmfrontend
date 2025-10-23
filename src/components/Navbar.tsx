@@ -229,4 +229,4 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   );
 };
 
-export default Navbar;
+export default Navbar;  

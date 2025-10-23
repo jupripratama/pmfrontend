@@ -27,33 +27,71 @@ interface HourlyChartProps {
 const HourlyChart: React.FC<HourlyChartProps> = ({ hourlyData }) => {
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Call Distribution by Hour',
-        font: {
-          size: 16
+        labels: {
+          boxWidth: 12,
+          padding: 15,
+          font: {
+            size: 11
+          }
         }
       },
+      title: {
+        display: false // Remove chart title since we have card title
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+        padding: 10,
+        bodyFont: {
+          size: 12
+        },
+        titleFont: {
+          size: 11
+        }
+      }
     },
     scales: {
       x: {
-        title: {
-          display: true,
-          text: 'Hour of Day',
+        grid: {
+          display: false
         },
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45,
+          font: {
+            size: 10
+          },
+          padding: 5
+        }
       },
       y: {
-        title: {
-          display: true,
-          text: 'Number of Calls',
-        },
         beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        },
+        ticks: {
+          font: {
+            size: 10
+          },
+          padding: 8,
+          callback: function(value: string | number) {
+            if (typeof value === 'number') {
+              return value.toLocaleString();
+            }
+            return value;
+          }
+        }
       },
     },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false
+    }
   };
 
   const data = {
@@ -65,6 +103,9 @@ const HourlyChart: React.FC<HourlyChartProps> = ({ hourlyData }) => {
         backgroundColor: 'rgba(239, 68, 68, 0.8)',
         borderColor: 'rgba(239, 68, 68, 1)',
         borderWidth: 1,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
       },
       {
         label: 'System Busy',
@@ -72,6 +113,9 @@ const HourlyChart: React.FC<HourlyChartProps> = ({ hourlyData }) => {
         backgroundColor: 'rgba(245, 158, 11, 0.8)',
         borderColor: 'rgba(245, 158, 11, 1)',
         borderWidth: 1,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
       },
       {
         label: 'Others',
@@ -79,13 +123,24 @@ const HourlyChart: React.FC<HourlyChartProps> = ({ hourlyData }) => {
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
         borderColor: 'rgba(16, 185, 129, 1)',
         borderWidth: 1,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
       },
     ],
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <Bar options={options} data={data} />
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 lg:mb-6 gap-2">
+        <h3 className="text-base lg:text-lg font-semibold text-gray-900">Call Distribution by Hour</h3>
+        <div className="flex items-center space-x-2 text-xs lg:text-sm text-gray-500">
+          <span>24-hour overview</span>
+        </div>
+      </div>
+      <div className="h-[300px] sm:h-[350px] lg:h-[400px] xl:h-[450px]">
+        <Bar options={options} data={data} />
+      </div>
     </div>
   );
 };
