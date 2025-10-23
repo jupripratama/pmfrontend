@@ -43,13 +43,54 @@ export interface UploadCsvResponse {
 
 // Tambahkan interface untuk API response jika perlu
 export interface CallRecordsResponse {
-  data: {
-    items: CallRecord[];
-    totalCount: number;
-    page: number;
-    pageSize: number;
-  };
   statusCode: number;
   message: string;
+  data: {
+    data: CallRecord[];
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
   meta: any;
+}
+
+export enum FleetStatisticType {
+  All = 'All',
+  Caller = 'Caller',
+  Called = 'Called'
+}
+
+export interface TopCallerFleetDto {
+  rank: number;
+  callerFleet: string;
+  totalCalls: number;
+  totalDurationSeconds: number;
+  totalDurationFormatted: string;
+  averageDurationSeconds: number;
+  averageDurationFormatted: string;
+}
+
+export interface TopCalledFleetDto {
+  rank: number;
+  calledFleet: string;
+  totalCalls: number;
+  totalDurationSeconds: number;
+  totalDurationFormatted: string;
+  averageDurationSeconds: number;
+  averageDurationFormatted: string;
+  uniqueCallers: number;
+}
+
+export interface FleetStatisticsDto {
+  date: string;
+  topCallers: TopCallerFleetDto[];
+  topCalledFleets: TopCalledFleetDto[];
+  totalCallsInDay: number;
+  totalDurationInDaySeconds: number;
+  totalDurationInDayFormatted: string;
+  totalUniqueCallers: number;
+  totalUniqueCalledFleets: number;
 }

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
-import { CallRecord, DailySummary, UploadCsvResponse, CallRecordsResponse } from '../types/callRecord';
+import { CallRecord, DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
 
 const API_BASE_URL = 'http://localhost:5116/api';
 
@@ -74,43 +74,53 @@ export const callRecordApi = {
   },
 
   // Get call records dengan pagination dan filtering
-  getCallRecords: async (startDate: string, endDate: string, pageSize: number = 1000): Promise<CallRecord[]> => {
-    try {
-      console.log('📡 API Call: getCallRecords', { startDate, endDate });
-      const response = await api.get(`/call-records?startDate=${startDate}&endDate=${endDate}&pageSize=${pageSize}`);
-      
-      console.log('📊 Full API Response:', response.data);
-      
-      // Debug: log struktur lengkap
-      console.log('🔍 Response structure:', {
-        data: response.data,
-        hasData: !!response.data,
-        hasDataData: !!response.data?.data,
-        hasDataDataData: !!response.data?.data?.data,
-        isArray: Array.isArray(response.data?.data?.data)
-      });
+  getCallRecords: async (
+  startDate?: string, 
+  endDate?: string, 
+  page: number = 1, 
+  pageSize: number = 15,
+  search?: string,
+  callCloseReason?: number,
+  hourGroup?: number,
+  sortBy?: string,
+  sortDir?: string
+): Promise<CallRecordsResponse> => {
+  try {
+    console.log('📡 API Call: getCallRecords', { 
+      startDate, 
+      endDate, 
+      page, 
+      pageSize,
+      search,
+      callCloseReason,
+      hourGroup,
+      sortBy,
+      sortDir
+    });
 
-      // Handle berdasarkan struktur response yang sesuai
-      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
-        console.log('✅ Using response.data.data.data (array)');
-        return response.data.data.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        console.log('✅ Using response.data.data (array)');
-        return response.data.data;
-      } else if (Array.isArray(response.data)) {
-        console.log('✅ Using direct array response');
-        return response.data;
-      } else {
-        console.warn('❓ Unknown response structure, returning empty array');
-        console.log('📋 Available keys:', Object.keys(response.data || {}));
-        return [];
-      }
-    } catch (error: any) {
-      console.error('❌ Error fetching call records:', error);
-      console.error('Error response:', error.response?.data);
-      throw error;
-    }
-  },
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    params.append('page', page.toString());
+    params.append('pageSize', pageSize.toString());
+    if (search) params.append('search', search);
+    if (callCloseReason !== undefined) params.append('callCloseReason', callCloseReason.toString());
+    if (hourGroup !== undefined) params.append('hourGroup', hourGroup.toString());
+    if (sortBy) params.append('sortBy', sortBy);
+    if (sortDir) params.append('sortDir', sortDir);
+
+    const response = await api.get(`/call-records?${params}`);
+    
+    console.log('📊 Full API Response:', response.data);
+    
+    // Return the entire response structure
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching call records:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+},
 
 
   // Import CSV file
@@ -225,6 +235,31 @@ export const callRecordApi = {
         alert('Error deleting call records');
       }
       
+      throw error;
+    }
+  },
+
+  getFleetStatistics: async (
+  date?: string, 
+  top: number = 10, 
+  type?: FleetStatisticType
+  ): Promise<FleetStatisticsDto> => {
+    try {
+      console.log('📡 API Call: getFleetStatistics', { date, top, type });
+      
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      params.append('top', top.toString());
+      if (type && type !== FleetStatisticType.All) {
+        params.append('type', type);
+      }
+
+      const response = await api.get(`/call-records/fleet-statistics?${params}`);
+      console.log('📊 Fleet Statistics Response:', response.data);
+      
+      return response.data.data;
+    } catch (error: any) {
+      console.error('❌ Error loading fleet statistics:', error);
       throw error;
     }
   },

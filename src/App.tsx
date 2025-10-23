@@ -1,23 +1,17 @@
-import React from 'react';
-import { useAuth } from './contexts/AuthContext';
-import Login from './components/Login';
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import CallRecordsPage from './components/CallRecordsPage';
 import UploadPage from './components/UploadPage';
 import ExportPage from './components/ExportPage';
+import FleetStatisticsPage from './components/FleetStatisticsPage'; // Import komponen baru
+import './App.css';
 
-function App() {
-  const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = React.useState('dashboard');
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+function AppContent() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   if (!user) {
     return <Login />;
@@ -30,9 +24,15 @@ function App() {
       case 'callrecords':
         return <CallRecordsPage />;
       case 'upload':
-        return <UploadPage onBack={() => setActiveTab('dashboard')} />;
+        return <UploadPage onBack={function (): void {
+          throw new Error('Function not implemented.');
+        } } />;
       case 'export':
-        return <ExportPage onBack={() => setActiveTab('dashboard')} />;
+        return <ExportPage onBack={function (): void {
+          throw new Error('Function not implemented.');
+        } } />;
+      case 'fleet-statistics': // Tambahkan case baru
+        return <FleetStatisticsPage />;
       default:
         return <Dashboard />;
     }
@@ -42,6 +42,14 @@ function App() {
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       {renderContent()}
     </Layout>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

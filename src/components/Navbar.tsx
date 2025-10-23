@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
+import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown, Users } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: string;
@@ -35,6 +35,11 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'export', label: 'Export Data', icon: Download },
   ];
 
+  // Tambahkan menu Fleet Statistics
+  const analyticsMenuItems = [
+    { id: 'fleet-statistics', label: 'Fleet Statistics', icon: Users },
+  ];
+
   const handleMenuClick = (menuId: string) => {
     setActiveTab(menuId);
     setIsMobileMenuOpen(false);
@@ -42,8 +47,8 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   };
 
   return (
-    <nav className="bg-white shadow-lg border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-white shadow-lg border-b border-gray-200 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side - Logo and main menu */}
           <div className="flex items-center">
@@ -106,6 +111,22 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   </div>
                 )}
               </div>
+
+              {/* Analytics Menu Items */}
+              {analyticsMenuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === item.id
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 mr-2" />
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -143,7 +164,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-2">
+          <div className="md:hidden border-t border-gray-200 py-2 bg-white">
             {/* Main Menu Items */}
             {mainMenuItems.map((item) => (
               <button
@@ -166,6 +187,27 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 Call Records
               </div>
               {callRecordsMenuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    activeTab === item.id
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 mr-3" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Analytics Menu Items */}
+            <div className="border-t border-gray-200 mt-2 pt-2">
+              <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Analytics
+              </div>
+              {analyticsMenuItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleMenuClick(item.id)}
