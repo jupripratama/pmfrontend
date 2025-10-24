@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -7,7 +8,9 @@ import CallRecordsPage from './components/CallRecordsPage';
 import UploadPage from './components/UploadPage';
 import ExportPage from './components/ExportPage';
 import FleetStatisticsPage from './components/FleetStatisticsPage';
+
 import './App.css';
+import DocsPage from './components/DocsPage';
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -27,18 +30,22 @@ function AppContent() {
 
   const handleUploadBack = () => {
     console.log('Navigating back from upload');
+    setActiveTab('dashboard');
   };
 
   const handleExportBack = () => {
     console.log('Navigating back from export');
+    setActiveTab('dashboard');
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard setActiveTab={setActiveTab} />; {/* ← TAMBAH PROPS DI SINI */}
       case 'callrecords':
         return <CallRecordsPage />;
+      case 'docs':
+      return <DocsPage setActiveTab={setActiveTab} />;  
       case 'upload':
         return (
           <UploadPage 
@@ -56,11 +63,10 @@ function AppContent() {
       case 'fleet-statistics':
         return <FleetStatisticsPage />;
       default:
-        return <Dashboard />;
+        return <Dashboard setActiveTab={setActiveTab} />; {/* ← DAN DI SINI */}
     }
   };
 
-  // PASTIKAN INI: Gunakan Layout untuk wrap content
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       {renderContent()}
@@ -70,9 +76,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 
