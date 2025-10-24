@@ -5,13 +5,21 @@ import { UploadCsvResponse } from '../types/callRecord';
 
 interface UploadPageProps {
   onBack: () => void;
+  setActiveTab?: (tab: string) => void; // Tambahkan ini
 }
 
-const UploadPage: React.FC<UploadPageProps> = ({ onBack }) => {
+const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadCsvResponse | null>(null);
+
+  const handleBack = () => {
+    if (setActiveTab) {
+      setActiveTab('callrecords'); // Kembali ke View Records
+    }
+    onBack(); // Tetap panggil onBack original
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -60,21 +68,26 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack }) => {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
+  <div className="flex items-center justify-between">
+    <div className="flex items-center space-x-4">
+     <button
+              onClick={handleBack}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
+      </button>
+      
+      {/* Container untuk teks yang akan di-tengah */}
+      <div className="flex-1 flex flex-col items-center justify-center text-center">
               <h1 className="text-2xl font-bold text-gray-900">Upload CSV File</h1>
               <p className="text-gray-600 mt-1">Import call records data from CSV file</p>
-            </div>
-          </div>
-        </div>
       </div>
+      
+      {/* Elemen kosong untuk menjaga keseimbangan flexbox */}
+      <div className="w-9"></div>
+    </div>
+  </div>
+</div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upload Area */}

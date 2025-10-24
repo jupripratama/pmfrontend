@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { Download, FileDown, ArrowLeft, Calendar } from 'lucide-react';
+import { FileDown, ArrowLeft, Calendar } from 'lucide-react';
 import { callRecordApi } from '../services/api';
 
 interface ExportPageProps {
   onBack: () => void;
+  setActiveTab?: (tab: string) => void;
 }
 
-const ExportPage: React.FC<ExportPageProps> = ({ onBack }) => {
+const ExportPage: React.FC<ExportPageProps> = ({ onBack, setActiveTab }) => {
+  const handleBack = () => {
+    if (setActiveTab) {
+      setActiveTab('callrecords');
+    }
+    onBack();
+  };
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -53,14 +60,15 @@ const ExportPage: React.FC<ExportPageProps> = ({ onBack }) => {
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 flex-1">
             <button
-              onClick={onBack}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
+                         onClick={handleBack}
+                         className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                       >
+                         <ArrowLeft className="w-5 h-5" />
+                 </button>
+            {/* Container untuk teks yang akan di-tengah */}
+           <div className="flex-1 flex flex-col items-center justify-center text-center">
               <h1 className="text-2xl font-bold text-gray-900">Export Data</h1>
               <p className="text-gray-600 mt-1">Export call records data in various formats</p>
             </div>

@@ -22,7 +22,16 @@ const Dashboard: React.FC = () => {
   // Empty state - jujur bahwa belum ada data
   const hasData = false; // Ini nanti bisa dari props/state
 
-  const quickActions = [
+  type QuickAction = {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    color: 'blue' | 'gray';
+    path: string;
+    isPrimary: boolean;
+  };
+
+  const quickActions: QuickAction[] = [
     {
       icon: Upload,
       title: "Upload Your First Data",
