@@ -10,15 +10,22 @@ import FleetStatisticsPage from './components/FleetStatisticsPage';
 import './App.css';
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Login />;
   }
 
   const handleUploadBack = () => {
-    // Fungsi ini bisa kosong atau berisi logika tambahan jika needed
     console.log('Navigating back from upload');
   };
 
@@ -36,14 +43,14 @@ function AppContent() {
         return (
           <UploadPage 
             onBack={handleUploadBack} 
-            setActiveTab={setActiveTab} // Kirim setActiveTab ke UploadPage
+            setActiveTab={setActiveTab}
           />
         );
       case 'export':
         return (
           <ExportPage 
             onBack={handleExportBack}
-            setActiveTab={setActiveTab} // Juga untuk ExportPage jika needed
+            setActiveTab={setActiveTab}
           />
         );
       case 'fleet-statistics':
@@ -53,7 +60,8 @@ function AppContent() {
     }
   };
 
- return (
+  // PASTIKAN INI: Gunakan Layout untuk wrap content
+  return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       {renderContent()}
     </Layout>

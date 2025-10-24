@@ -53,7 +53,10 @@ api.interceptors.response.use(
     // Handle specific error cases
     if (error.response?.status === 401) {
       console.warn('🛑 Unauthorized - Redirect to login');
-      // You can add redirect to login here if needed
+      // Clear invalid token
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('permissions');
     } else if (error.response?.status === 403) {
       console.warn('🚫 Forbidden - Insufficient permissions');
     } else if (error.code === 'ERR_NETWORK') {
@@ -67,16 +70,27 @@ api.interceptors.response.use(
 // Auth API functions
 export const authApi = {
   login: async (credentials: LoginRequest) => {
-    const response = await api.post('/api/auth/login', credentials);
-    const data = response.data.data;
-    
-    // Save token and user data
-    localStorage.setItem('authToken', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('permissions', JSON.stringify(data.permissions));
-    
-    console.log('🔐 Login successful:', data.user);
-    return data;
+    try {
+      const response = await api.post('/api/auth/login', credentials);
+      
+      console.log('🔐 Login response:', response.data);
+      
+      // Asumsikan response selalu success jika sampai sini
+      const data = response.data.data;
+      
+      // Save token and user data
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('permissions', JSON.stringify(data.permissions));
+      
+      console.log('🔐 Login successful:', data.user);
+      return data;
+      
+    } catch (error: any) {
+      console.error('❌ Login API error:', error);
+     
+      throw error;
+    }
   },
 
   getProfile: async (): Promise<User> => {
@@ -94,10 +108,24 @@ export const authApi = {
     localStorage.removeItem('user');
     localStorage.removeItem('permissions');
     console.log('👋 Logout successful');
+  },
+
+  // Health check for server status
+  healthCheck: async (): Promise<boolean> => {
+    try {
+      await api.get('/api/auth/profile', { timeout: 5000 });
+      return true;
+    } catch (error: any) {
+      // If we get any response (even 401), server is online
+      if (error.response) {
+        return true;
+      }
+      return false;
+    }
   }
 };
 
-// Call Record API functions
+// ... (Call Record API functions remain the same)
 export const callRecordApi = {
   // Get daily summary for specific date
   getDailySummary: async (date: string): Promise<DailySummary> => {

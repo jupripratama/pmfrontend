@@ -138,3 +138,140 @@
   border: 0 !important;
 }
 
+/* ========== NEW ANIMATIONS & UTILITIES ========== */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Custom scrollbar untuk dark theme */
+.dark-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Glass morphism effect */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient text utilities */
+.text-gradient-blue {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-purple {
+  background: linear-gradient(135deg, #a855f7, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom shadow */
+.shadow-glow {
+  box-shadow: 0 0 50px -12px rgba(59, 130, 246, 0.25);
+}
+
+/* ========== FIX FOR LOGIN FORM INTERACTIVITY ========== */
+.login-container {
+  position: relative;
+  z-index: 10;
+}
+
+.login-form-container {
+  position: relative;
+  z-index: 20;
+}
+
+/* Ensure form elements are clickable */
+.login-input {
+  position: relative;
+  z-index: 30;
+}
+
+/* Fix for background elements */
+.background-elements {
+  pointer-events: none;
+}
+
+/* Ensure inputs are accessible */
+input:not([disabled]), 
+button:not([disabled]) {
+  pointer-events: auto !important;
+}
+
+/* Remove any overlay that might block interactions */
+.overlay-blocker {
+  display: none;
+}
+
+.login-input-compact {
+  padding: 0.5rem 0.75rem !important;
+  height: 2.5rem !important;
+  font-size: 0.875rem !important;
+}
+
+/* Fix untuk glass morphism yang lebih baik */
+.glass-morphism-improved {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+}
+
+/* Fix untuk button proportions */
+.btn-compact {
+  padding: 0.5rem 1rem !important;
+  height: 2.5rem !important;
+  font-size: 0.875rem !important;
+}
+
+/* Ensure proper spacing */
+.form-spacing-compact {
+  margin-bottom: 0.5rem !important;
+}
+
+/* Fix label spacing */
+.label-compact {
+  margin-bottom: 0.25rem !important;
+}

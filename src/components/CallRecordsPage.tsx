@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // IMPORT useAuth
 import { 
   Calendar, 
   Download, 
@@ -47,6 +48,9 @@ interface QueryParams {
 }
 
 const CallRecordsPage: React.FC = () => {
+  const { user } = useAuth(); // GET USER INFO
+  const hasFullAccess = user?.roleId === 1 || user?.roleId === 2; // CHECK ROLE
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -54,7 +58,7 @@ const CallRecordsPage: React.FC = () => {
   const [records, setRecords] = useState<CallRecord[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeSection, setActiveSection] = useState<'records' | 'summary'>('records');
+  const [activeSection, setActiveSection] = useState<'records' | 'summary'>('summary'); // DEFAULT KE SUMMARY
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
@@ -376,8 +380,8 @@ const CallRecordsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Debug Info Panel */}
-      {debugInfo && (
+      {/* Debug Info Panel - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
+      {/* {hasFullAccess && debugInfo && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center">
@@ -442,7 +446,7 @@ const CallRecordsPage: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Error Banner */}
       {error && (
@@ -470,6 +474,7 @@ const CallRecordsPage: React.FC = () => {
               {userRole && (
                 <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
                   userRole === 'Super Admin' ? 'bg-purple-100 text-purple-800' :
+                  userRole === 'Admin' ? 'bg-blue-100 text-blue-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
                   Role: {userRole}
@@ -488,164 +493,111 @@ const CallRecordsPage: React.FC = () => {
               />
             </div>
             
-            <button 
-              onClick={handleDeleteRecords}
-              disabled={records.length === 0 || !hasDeletePermission || isLoading}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
-                hasDeletePermission 
-                  ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed' 
-                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            {/* Delete Button - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
+            {hasFullAccess && (
+              <button 
+                onClick={handleDeleteRecords}
+                disabled={records.length === 0 || !hasDeletePermission || isLoading}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
+                  hasDeletePermission 
+                    ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed' 
+                    : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                }`}
+                title={
+                  !hasDeletePermission 
+                    ? `Missing permission: callrecord.delete` 
+                    : records.length === 0 
+                      ? 'No records to delete' 
+                      : 'Delete all records for selected date'
+                }
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isLoading ? 'Deleting...' : 'Delete Records'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
+      {hasFullAccess ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex space-x-4">
+
+             <button
+              onClick={() => setActiveSection('summary')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeSection === 'summary'
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
-              title={
-                !hasDeletePermission 
-                  ? `Missing permission: callrecord.delete` 
-                  : records.length === 0 
-                    ? 'No records to delete' 
-                    : 'Delete all records for selected date'
-              }
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {isLoading ? 'Deleting...' : 'Delete Records'}
+              📊 Daily Summary & Charts
             </button>
+            <button
+              onClick={() => setActiveSection('records')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeSection === 'records'
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              📋 Call Records ({totalRecords.toLocaleString()})
+            </button>
+            
+           
           </div>
         </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setActiveSection('records')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeSection === 'records'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            📋 Call Records ({totalRecords.toLocaleString()})
-          </button>
-          
-          <button
-            onClick={() => setActiveSection('summary')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeSection === 'summary'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            📊 Daily Summary & Charts
-          </button>
-        </div>
-      </div>
-
-      {/* Export Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Download className="w-5 h-5 mr-2" />
-          Export Data
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-3">Export for {selectedDate}</h3>
-            <div className="flex space-x-2">
-              <button
-                onClick={handleExportCSV}
-                disabled={records.length === 0 || !canExportCSV}
-                className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
-                title={!canExportCSV ? 'No permission to export CSV' : ''}
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Export CSV
-              </button>
-              <button
-                onClick={handleExportDailySummary}
-                disabled={!dailySummary || !canExportExcel}
-                className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
-                title={!canExportExcel ? 'No permission to export Excel' : ''}
-              >
-                <FileDown className="w-4 h-4 mr-2" />
-                Export Excel
-              </button>
-            </div>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-3">Export for Date Range</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleExportRangeCSV}
-                  disabled={!canExportCSV}
-                  className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
-                  title={!canExportCSV ? 'No permission to export CSV' : ''}
-                >
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Export CSV
-                </button>
-                <button
-                  onClick={handleExportOverallSummary}
-                  disabled={!canExportExcel}
-                  className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
-                  title={!canExportExcel ? 'No permission to export Excel' : ''}
-                >
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Export Excel
-                </button>
-              </div>
-            </div>
+      ) : (
+        // Untuk role 3, langsung set active section ke summary
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <BarChart3 className="w-5 h-5 text-blue-600 mr-2" />
+            <span className="text-blue-800 font-medium">Viewing Daily Summary & Charts</span>
           </div>
         </div>
-      </div>
-
-      {/* Content Sections */}
-      {activeSection === 'records' && (
-        <CallRecordsSection 
-          records={records}
-          recordsResponse={recordsResponse}
-          isLoading={isLoading}
-          searchTerm={queryParams.search}
-          onSearchChange={handleSearch}
-          filterReason={filterReason}
-          onFilterReasonChange={handleFilterReason}
-          filterHour={filterHour}
-          onFilterHourChange={handleFilterHour}
-          sortBy={queryParams.sortBy}
-          sortDir={queryParams.sortDir}
-          onSort={handleSort}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          hasNext={hasNext}
-          hasPrevious={hasPrevious}
-          onPageChange={handlePageChange}
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters(!showFilters)}
-          getCloseReasonText={getCloseReasonText}
-          getCloseReasonDescription={getCloseReasonDescription}
-        />
       )}
 
-      {activeSection === 'summary' && (
+      {/* Content Sections */}
+      {/* Untuk role selain 1 & 2, HANYA tampilkan summary section */}
+      {hasFullAccess ? (
+        <>
+          {activeSection === 'records' && (
+            <CallRecordsSection 
+              records={records}
+              recordsResponse={recordsResponse}
+              isLoading={isLoading}
+              searchTerm={queryParams.search}
+              onSearchChange={handleSearch}
+              filterReason={filterReason}
+              onFilterReasonChange={handleFilterReason}
+              filterHour={filterHour}
+              onFilterHourChange={handleFilterHour}
+              sortBy={queryParams.sortBy}
+              sortDir={queryParams.sortDir}
+              onSort={handleSort}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+              onPageChange={handlePageChange}
+              showFilters={showFilters}
+              onToggleFilters={() => setShowFilters(!showFilters)}
+              getCloseReasonText={getCloseReasonText}
+              getCloseReasonDescription={getCloseReasonDescription}
+            />
+          )}
+
+          {activeSection === 'summary' && (
+            <SummarySection 
+              dailySummary={dailySummary}
+              isLoading={isLoading}
+              selectedDate={selectedDate}
+            />
+          )}
+        </>
+      ) : (
+        // Untuk role 3, HANYA tampilkan summary section
         <SummarySection 
           dailySummary={dailySummary}
           isLoading={isLoading}

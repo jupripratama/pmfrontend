@@ -65,11 +65,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto flex-1">
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
   <div className="flex items-center justify-between">
-    <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-4 flex-1">
      <button
               onClick={handleBack}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"

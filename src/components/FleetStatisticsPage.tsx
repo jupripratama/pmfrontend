@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Phone, Clock, TrendingUp, Filter, Download } from 'lucide-react';
+import { Calendar, Users, Phone, Clock, TrendingUp, Filter, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { callRecordApi } from '../services/api';
 import { FleetStatisticsDto, FleetStatisticType, TopCallerFleetDto, TopCalledFleetDto } from '../types/callRecord';
 
@@ -10,6 +10,7 @@ const FleetStatisticsPage: React.FC = () => {
   const [statistics, setStatistics] = useState<FleetStatisticsDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(true);
 
   useEffect(() => {
     loadFleetStatistics();
@@ -56,6 +57,11 @@ const FleetStatisticsPage: React.FC = () => {
     }
   };
 
+  // Handler untuk button type
+  const handleTypeChange = (type: FleetStatisticType) => {
+    setStatisticType(type);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -71,7 +77,7 @@ const FleetStatisticsPage: React.FC = () => {
             <button
               onClick={loadFleetStatistics}
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 shadow-sm"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               {isLoading ? 'Loading...' : 'Refresh'}
@@ -80,63 +86,153 @@ const FleetStatisticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Filter className="w-5 h-5 mr-2" />
-          Filter Settings
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Date Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              Date
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* Top Count Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Users className="w-4 h-4 inline mr-1" />
-              Top Records
-            </label>
-            <select
-              value={topCount}
-              onChange={(e) => setTopCount(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={5}>Top 5</option>
-              <option value={10}>Top 10</option>
-              <option value={20}>Top 20</option>
-              <option value={50}>Top 50</option>
-            </select>
-          </div>
-
-          {/* Type Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Filter className="w-4 h-4 inline mr-1" />
-              Statistics Type
-            </label>
-            <select
-              value={statisticType}
-              onChange={(e) => setStatisticType(e.target.value as FleetStatisticType)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={FleetStatisticType.All}>All Statistics</option>
-              <option value={FleetStatisticType.Caller}>Top Callers Only</option>
-              <option value={FleetStatisticType.Called}>Top Called Only</option>
-            </select>
+      {/* Filters Section - IMPROVED DESIGN */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Filter Header */}
+        <div 
+          className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer"
+          onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-200 mr-3">
+                <Filter className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Filter Settings</h2>
+                <p className="text-sm text-gray-600">Customize your statistics view</p>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <span className="text-sm text-gray-500 mr-3">
+                {isFilterExpanded ? 'Collapse' : 'Expand'}
+              </span>
+              {isFilterExpanded ? (
+                <ChevronUp className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Filter Content */}
+        {isFilterExpanded && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Date Filter - IMPROVED */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 flex items-center">
+                  <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                  Date
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:border-gray-400"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  {formatDisplayDate(selectedDate)}
+                </p>
+              </div>
+
+              {/* Top Count Filter - IMPROVED */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-purple-500" />
+                  Top Records
+                </label>
+                <div className="relative">
+                  <select
+                    value={topCount}
+                    onChange={(e) => setTopCount(Number(e.target.value))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition-all shadow-sm hover:border-gray-400 bg-white"
+                  >
+                    <option value={5}>Top 5 Records</option>
+                    <option value={10}>Top 10 Records</option>
+                    <option value={20}>Top 20 Records</option>
+                    <option value={50}>Top 50 Records</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Display top {topCount} performing fleets
+                </p>
+              </div>
+
+              {/* Type Filter - IMPROVED Button Group */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 flex items-center">
+                  <Filter className="w-4 h-4 mr-2 text-green-500" />
+                  Statistics Type
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleTypeChange(FleetStatisticType.All)}
+                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                      statisticType === FleetStatisticType.All
+                        ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                    }`}
+                  >
+                    <span>All</span>
+                  </button>
+                  <button
+                    onClick={() => handleTypeChange(FleetStatisticType.Caller)}
+                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                      statisticType === FleetStatisticType.Caller
+                        ? 'bg-green-600 text-white shadow-md transform scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                    }`}
+                  >
+                    <span>Top Caller</span>
+                  </button>
+                  <button
+                    onClick={() => handleTypeChange(FleetStatisticType.Called)}
+                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                      statisticType === FleetStatisticType.Called
+                        ? 'bg-purple-600 text-white shadow-md transform scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                    }`}
+                  >
+                    <span>Top Called</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {statisticType === FleetStatisticType.All && 'Showing all statistics'}
+                  {statisticType === FleetStatisticType.Caller && 'Focusing on callers'}
+                  {statisticType === FleetStatisticType.Called && 'Focusing on called fleets'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Stats Preview */}
+            {statistics && (
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Preview</h3>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <div className="text-lg font-bold text-blue-700">{statistics.totalCallsInDay.toLocaleString()}</div>
+                    <div className="text-xs text-blue-600">Total Calls</div>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-3">
+                    <div className="text-lg font-bold text-purple-700">{statistics.totalUniqueCallers.toLocaleString()}</div>
+                    <div className="text-xs text-purple-600">Unique Callers</div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-3">
+                    <div className="text-lg font-bold text-orange-700">{statistics.totalUniqueCalledFleets.toLocaleString()}</div>
+                    <div className="text-xs text-orange-600">Unique Called</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
@@ -154,7 +250,7 @@ const FleetStatisticsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Overall Statistics */}
+      {/* Overall Statistics - IMPROVED */}
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
@@ -163,13 +259,7 @@ const FleetStatisticsPage: React.FC = () => {
             icon={Phone}
             color="blue"
             description="Total calls for the day"
-          />
-          <StatCard
-            title="Total Duration"
-            value={statistics.totalDurationInDayFormatted}
-            icon={Clock}
-            color="green"
-            description="Total call duration"
+            
           />
           <StatCard
             title="Unique Callers"
@@ -177,6 +267,7 @@ const FleetStatisticsPage: React.FC = () => {
             icon={Users}
             color="purple"
             description="Unique caller fleets"
+            
           />
           <StatCard
             title="Unique Called"
@@ -184,7 +275,15 @@ const FleetStatisticsPage: React.FC = () => {
             icon={Users}
             color="orange"
             description="Unique called fleets"
+       
           />
+          {/* <StatCard
+            title="Avg. Duration"
+            value={statistics.totalDurationInDayFormatted}
+            icon={Clock}
+            color="green"
+            description="Average call duration"
+          /> */}
         </div>
       )}
 
@@ -198,6 +297,7 @@ const FleetStatisticsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Rest of your existing table components remain the same */}
       {/* Top Callers Section */}
       {statistics && (statisticType === FleetStatisticType.All || statisticType === FleetStatisticType.Caller) && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -346,19 +446,20 @@ const FleetStatisticsPage: React.FC = () => {
   );
 };
 
-// Reusable StatCard Component
+// IMPROVED StatCard Component
 const StatCard: React.FC<{
   title: string;
   value: string;
   icon: React.ElementType;
   color: 'blue' | 'green' | 'purple' | 'orange';
   description: string;
-}> = ({ title, value, icon: Icon, color, description }) => {
+  trend?: string;
+}> = ({ title, value, icon: Icon, color, description, trend }) => {
   const colorClasses = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    purple: 'bg-purple-500',
-    orange: 'bg-orange-500'
+    blue: 'bg-gradient-to-br from-blue-500 to-blue-600',
+    green: 'bg-gradient-to-br from-green-500 to-green-600',
+    purple: 'bg-gradient-to-br from-purple-500 to-purple-600',
+    orange: 'bg-gradient-to-br from-orange-500 to-orange-600'
   };
 
   const textColors = {
@@ -368,15 +469,29 @@ const StatCard: React.FC<{
     orange: 'text-orange-700'
   };
 
+  const bgColors = {
+    blue: 'bg-blue-50',
+    green: 'bg-green-50',
+    purple: 'bg-purple-50',
+    orange: 'bg-orange-50'
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            {trend && (
+              <span className="text-xs font-medium bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                {trend}
+              </span>
+            )}
+          </div>
           <p className={`text-2xl font-bold ${textColors[color]} mb-2`}>{value}</p>
           <p className="text-xs text-gray-500">{description}</p>
         </div>
-        <div className={`p-3 rounded-xl ${colorClasses[color]} text-white shadow-sm`}>
+        <div className={`p-3 rounded-xl ${colorClasses[color]} text-white shadow-lg`}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
