@@ -4,7 +4,7 @@ import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticTy
 
 // Remove baseURL or set to empty string for proxy to work
 const api = axios.create({
-  baseURL: '', // Empty for proxy
+  baseURL: import.meta.env.VITE_API_URL || '',
   timeout: 30000, // Increase timeout
 });
 
