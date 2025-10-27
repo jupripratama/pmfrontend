@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileDown, ArrowLeft, Calendar } from 'lucide-react';
 import { callRecordApi } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 interface ExportPageProps {
   onBack: () => void;
@@ -8,11 +9,15 @@ interface ExportPageProps {
 }
 
 const ExportPage: React.FC<ExportPageProps> = ({ onBack, setActiveTab }) => {
+  
+  const navigate = useNavigate();
   const handleBack = () => {
-    if (setActiveTab) {
-      setActiveTab('callrecords');
+    // ✅ PASTIKAN onBack DIPANGGIL
+    if (onBack) {
+      onBack();
     }
-    onBack();
+    // ✅ DAN PAKAI navigate UNTUK ROUTING
+    navigate('/callrecords');
   };
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);

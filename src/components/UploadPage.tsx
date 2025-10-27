@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { callRecordApi } from '../services/api';
 import { UploadCsvResponse } from '../types/callRecord';
+import { useNavigate } from 'react-router-dom'; 
 
 interface UploadPageProps {
   onBack: () => void;
@@ -9,16 +10,19 @@ interface UploadPageProps {
 }
 
 const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
+  const navigate = useNavigate(); 
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadCsvResponse | null>(null);
 
   const handleBack = () => {
-    if (setActiveTab) {
-      setActiveTab('callrecords'); // Kembali ke View Records
+    // ✅ PASTIKAN onBack DIPANGGIL
+    if (onBack) {
+      onBack();
     }
-    onBack(); // Tetap panggil onBack original
+    // ✅ DAN PAKAI navigate UNTUK ROUTING
+    navigate('/callrecords');
   };
 
   const handleFileUpload = async (file: File) => {
