@@ -1,14 +1,24 @@
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
-import { CallRecord, DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
+import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
 
-// Remove baseURL or set to empty string for proxy to work
+// Determine base URL based on environment
+const getBaseURL = () => {
+  // Jika di development, gunakan proxy (empty string)
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  // Jika di production, gunakan URL dari environment
+  return import.meta.env.VITE_API_URL || 'https://pm-mkn-production.up.railway.app';
+};
+
 const api = axios.create({
-  baseURL: '', // Empty for proxy
-  timeout: 30000, // Increase timeout
+  baseURL: getBaseURL(),
+  timeout: 30000,
+  withCredentials: false, // Set false dulu untuk avoid CORS issues
 });
 
-// Enhanced request interceptor with better logging
+// Enhanced request interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -16,12 +26,16 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Log request details
+    // Add content type if not set
+    if (!config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     console.log('🚀 API Request:', {
       method: config.method?.toUpperCase(),
       url: config.url,
-      params: config.params,
-      data: config.data
+      baseURL: config.baseURL,
+      headers: config.headers
     });
     
     return config;
@@ -38,7 +52,6 @@ api.interceptors.response.use(
     console.log('✅ API Response Success:', {
       status: response.status,
       url: response.config.url,
-      data: response.data
     });
     return response;
   },
@@ -46,36 +59,67 @@ api.interceptors.response.use(
     console.error('❌ API Response Error:', {
       status: error.response?.status,
       message: error.message,
+      code: error.code,
       url: error.config?.url,
-      data: error.response?.data
+      config: error.config
     });
     
     // Handle specific error cases
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      console.error('🌐 Network Error Details:');
+      console.error('- Backend URL:', getBaseURL());
+      console.error('- Environment:', import.meta.env.MODE);
+      console.error('- VITE_API_URL:', import.meta.env.VITE_API_URL);
+      
+      throw new Error('Tidak dapat terhubung ke server. Periksa:\n1. Backend server sedang berjalan\n2. Koneksi internet stabil\n3. CORS configuration di backend');
+    }
+    
     if (error.response?.status === 401) {
       console.warn('🛑 Unauthorized - Redirect to login');
-      // Clear invalid token
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       localStorage.removeItem('permissions');
+      // Don't redirect here, let component handle it
     } else if (error.response?.status === 403) {
       console.warn('🚫 Forbidden - Insufficient permissions');
-    } else if (error.code === 'ERR_NETWORK') {
-      console.error('🌐 Network Error - Check backend server');
     }
     
     return Promise.reject(error);
   }
 );
 
+// Test connection function
+export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    console.log('🔗 Testing connection to:', getBaseURL());
+    const response = await api.get('/api/auth/profile', { 
+      timeout: 10000,
+      validateStatus: (status) => status < 500 // Consider any status < 500 as connection success
+    });
+    console.log('🔗 Connection test response status:', response.status);
+    return { 
+      success: true, 
+      message: `Server connected (Status: ${response.status})` 
+    };
+  } catch (error: any) {
+    console.error('🔗 Connection test failed:', error);
+    return { 
+      success: false, 
+      message: error.message || 'Failed to connect to server' 
+    };
+  }
+};
+
 // Auth API functions
 export const authApi = {
   login: async (credentials: LoginRequest) => {
     try {
+      console.log('🔐 Login attempt to:', `${getBaseURL()}/api/auth/login`);
+      
       const response = await api.post('/api/auth/login', credentials);
       
-      console.log('🔐 Login response:', response.data);
+      console.log('🔐 Login response received:', response.data);
       
-      // Asumsikan response selalu success jika sampai sini
       const data = response.data.data;
       
       // Save token and user data
@@ -83,13 +127,19 @@ export const authApi = {
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('permissions', JSON.stringify(data.permissions));
       
-      console.log('🔐 Login successful:', data.user);
+      console.log('🔐 Login successful, user:', data.user.fullName);
       return data;
       
     } catch (error: any) {
       console.error('❌ Login API error:', error);
-     
-      throw error;
+      
+      // Enhanced error message
+      if (error.code === 'ERR_NETWORK') {
+        throw new Error('Tidak dapat terhubung ke server. Pastikan backend sedang berjalan dan dapat diakses.');
+      }
+      
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      throw new Error(errorMessage || 'Login failed');
     }
   },
 
@@ -113,19 +163,19 @@ export const authApi = {
   // Health check for server status
   healthCheck: async (): Promise<boolean> => {
     try {
-      await api.get('/api/auth/profile', { timeout: 5000 });
-      return true;
+      const response = await api.get('/api/auth/profile', { 
+        timeout: 5000,
+        validateStatus: () => true // Don't throw on any status
+      });
+      return response.status < 500; // Consider any status < 500 as server online
     } catch (error: any) {
-      // If we get any response (even 401), server is online
-      if (error.response) {
-        return true;
-      }
+      console.error('🔍 Health check failed:', error);
       return false;
     }
   }
 };
 
-// ... (Call Record API functions remain the same)
+// Call Record API functions
 export const callRecordApi = {
   // Get daily summary for specific date
   getDailySummary: async (date: string): Promise<DailySummary> => {
@@ -216,7 +266,8 @@ export const callRecordApi = {
       const response = await api.post('/api/call-records/import-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
-        }
+        },
+        timeout: 60000 // 60 seconds for file upload
       });
       return response.data.data;
     } catch (error: any) {

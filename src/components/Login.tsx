@@ -1,7 +1,9 @@
 // components/Login.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { BarChart3, Eye, EyeOff, LogIn, AlertCircle, CheckCircle2, Lock, User } from 'lucide-react';
+import { testConnection } from '../services/api';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -11,6 +13,8 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { login } = useAuth();
+  
+  const navigate = useNavigate();
 
   // Clear messages when user starts typing
   useEffect(() => {
@@ -20,60 +24,73 @@ const Login: React.FC = () => {
     }
   }, [username, password]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setSuccess(null);
 
-    // Validate inputs
-    if (!username.trim() || !password.trim()) {
-      setError('Harap lengkapi username dan password');
-      return;
+  if (!username.trim() || !password.trim()) {
+    setError('Harap lengkapi username dan password');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    console.log('🔐 Attempting login...', { 
+      username: username.trim(),
+      baseURL: import.meta.env.VITE_API_URL,
+      mode: import.meta.env.MODE
+    });
+    
+    // Test connection first
+    const connectionTest = await testConnection();
+    if (!connectionTest.success) {
+      throw new Error(connectionTest.message);
     }
-
-    setIsLoading(true);
-
-    try {
-      // Call login via AuthContext
-      await login({ 
-        username: username.trim(), 
-        password: password.trim() 
-      });
-      
-      setSuccess('Login berhasil! Mengarahkan ke dashboard...');
-      setUsername('');
-      setPassword('');
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1500);
-      
-    } catch (error: any) {
-      // Handle error from API
-      let errorMessage = 'Username atau password tidak valid';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-      
-      // Shake animation for error feedback
-      const form = document.getElementById('login-form');
-      if (form) {
-        form.classList.add('animate-shake');
-        setTimeout(() => form.classList.remove('animate-shake'), 500);
-      }
-      
-    } finally {
-      setIsLoading(false);
+    
+    await login({ 
+      username: username.trim(), 
+      password: password.trim() 
+    });
+    
+    setSuccess('Login berhasil! Mengarahkan ke dashboard...');
+    setUsername('');
+    setPassword('');
+    
+    // Redirect to dashboard
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1500);
+    
+  } catch (error: any) {
+    console.error('🔐 Login error details:', error);
+    
+    let errorMessage = 'Username atau password tidak valid';
+    
+    if (error.message.includes('Tidak dapat terhubung')) {
+      errorMessage = error.message;
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    } else if (error.message) {
+      errorMessage = error.message;
     }
-  };
+    
+    setError(errorMessage);
+    
+    // Shake animation for error feedback
+    const form = document.getElementById('login-form');
+    if (form) {
+      form.classList.add('animate-shake');
+      setTimeout(() => form.classList.remove('animate-shake'), 500);
+    }
+    
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const clearMessages = () => {
     setError(null);
@@ -299,4 +316,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default React.memo(Login);
