@@ -316,4 +316,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default React.memo(Login);

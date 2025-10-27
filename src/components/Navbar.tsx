@@ -8,6 +8,7 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
 }
 
+// Komponen Navbar utama
 const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -260,4 +261,4 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   );
 };
 
-export default Navbar;
+export default React.memo(Navbar);

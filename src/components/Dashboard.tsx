@@ -271,4 +271,4 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   );
 };
 
-export default Dashboard;
+export default React.memo(Dashboard);
