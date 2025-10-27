@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
-import { CallRecord, DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
+import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
 
 // Remove baseURL or set to empty string for proxy to work
 const api = axios.create({
