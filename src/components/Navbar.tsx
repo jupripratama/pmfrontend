@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavbarProps {
   activeTab: string;
@@ -11,17 +11,20 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLogout = () => {
-    logout();        // panggil fungsi logout dari context
-    navigate('/');   // arahkan balik ke halaman login TANPA reload
-  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCallRecordsDropdownOpen, setIsCallRecordsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check if user has full access (role 1 atau 2)
   const hasFullAccess = user?.roleId === 1 || user?.roleId === 2;
+
+  // Sync activeTab with current route
+  useEffect(() => {
+    const currentTab = location.pathname.replace('/', '') || 'dashboard';
+    setActiveTab(currentTab);
+  }, [location.pathname, setActiveTab]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,11 +38,23 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const handleMenuClick = (menuId: string) => {
+    setActiveTab(menuId);
+    navigate(`/${menuId}`);
+    setIsMobileMenuOpen(false);
+    setIsCallRecordsDropdownOpen(false);
+  };
+
   const mainMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   ];
 
-  // Call Records menu items - sembunyikan upload/export untuk role selain 1 dan 2
+  // Call Records menu items
   const callRecordsMenuItems = [
     { id: 'callrecords', label: 'View Records', icon: Phone },
     ...(hasFullAccess ? [
@@ -48,16 +63,10 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     ] : [])
   ];
 
-  // Analytics menu - sembunyikan seluruhnya untuk role selain 1 dan 2
+  // Analytics menu
   const analyticsMenuItems = hasFullAccess ? [
     { id: 'fleet-statistics', label: 'Fleet Statistics', icon: Users },
   ] : [];
-
-  const handleMenuClick = (menuId: string) => {
-    setActiveTab(menuId);
-    setIsMobileMenuOpen(false);
-    setIsCallRecordsDropdownOpen(false);
-  };
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200 w-full">
@@ -89,13 +98,13 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 </button>
               ))}
 
-              {/* Call Records Dropdown - hanya tampil jika ada menu items */}
+              {/* Call Records Dropdown */}
               {callRecordsMenuItems.length > 0 && (
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setIsCallRecordsDropdownOpen(!isCallRecordsDropdownOpen)}
                     className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      activeTab.startsWith('callrecords') || activeTab === 'upload' || activeTab === 'export'
+                      callRecordsMenuItems.some(item => activeTab === item.id)
                         ? 'bg-blue-100 text-blue-700 border border-blue-200'
                         : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                     }`}
@@ -127,7 +136,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 </div>
               )}
 
-              {/* Analytics Menu Items - hanya tampil jika ada menu items */}
+              {/* Analytics Menu Items */}
               {analyticsMenuItems.length > 0 && analyticsMenuItems.map((item) => (
                 <button
                   key={item.id}
@@ -199,7 +208,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               </button>
             ))}
 
-            {/* Call Records Menu Items - hanya jika ada items */}
+            {/* Call Records Menu Items */}
             {callRecordsMenuItems.length > 0 && (
               <div className="border-t border-gray-200 mt-2 pt-2">
                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -222,7 +231,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               </div>
             )}
 
-            {/* Analytics Menu Items - hanya jika ada items */}
+            {/* Analytics Menu Items */}
             {analyticsMenuItems.length > 0 && (
               <div className="border-t border-gray-200 mt-2 pt-2">
                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">

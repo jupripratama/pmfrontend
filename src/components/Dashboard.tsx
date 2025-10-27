@@ -26,9 +26,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const isRegularUser = !isAdmin;
 
   const handleActionClick = (tab: string) => {
-    console.log('🔄 Switching to tab:', tab);
-    setActiveTab(tab);
-  };
+  console.log('🔄 Switching to tab:', tab);
+  setActiveTab(tab);
+  // Navigate menggunakan window.location untuk sementara
+  window.location.href = `/${tab}`;
+};
 
   // Quick Actions HANYA untuk Admin
   const adminActions = [
