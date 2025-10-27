@@ -12,12 +12,14 @@ import {
   Shield,
   AlertTriangle
 } from 'lucide-react';  
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardProps {
   setActiveTab: (tab: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
+  const navigate = useNavigate();
   const hasData = false;
   const { user } = useAuth();
   
@@ -25,12 +27,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const isAdmin = user?.roleId === 1 || user?.roleId === 2;
   const isRegularUser = !isAdmin;
 
-  const handleActionClick = (tab: string) => {
-  console.log('🔄 Switching to tab:', tab);
-  setActiveTab(tab);
-  // Navigate menggunakan window.location untuk sementara
-  window.location.href = `/${tab}`;
-};
+   const handleActionClick = (tab: string) => {
+    console.log('🔄 Switching to tab:', tab);
+    setActiveTab(tab);
+    navigate(`/${tab}`); // ✅ PAKAI navigate()
+  };
 
   // Quick Actions HANYA untuk Admin
   const adminActions = [
