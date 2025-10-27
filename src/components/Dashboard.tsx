@@ -238,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
                 }
               </p>
               <button 
-                onClick={() => setActiveTab('docs')}
+                onClick={() => handleActionClick('docs')}
                 className="w-full bg-white text-blue-600 py-2 rounded-lg font-medium text-sm border border-blue-200 hover:bg-blue-100 transition-colors"
               >
                 Buka Panduan

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   FileText, 
   Download, 
@@ -27,11 +29,8 @@ interface DocsProps {
   setActiveTab?: (tab: string) => void;
 }
 
-const useAuth = () => ({
-  user: { roleId: 1, fullName: 'Admin User' }
-});
-
 const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTabState] = useState<'docs' | 'faq' | 'contact'>('docs');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -43,6 +42,7 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
     if (setActiveTab) {
       setActiveTab('dashboard');
     }
+    navigate('/dashboard');
   };
 
   const handleSectionClick = (sectionId: string) => {
@@ -50,6 +50,24 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  // Function untuk WhatsApp
+  const handleWhatsAppClick = () => {
+    // Nomor WhatsApp (format international tanpa +) - GANTI DENGAN NOMOR ASLI
+    const phoneNumber = '6289504186544';
+    
+    // Pesan default
+    const message = `Halo, saya ${user?.fullName || 'User'} butuh bantuan dengan Call Analytics Dashboard.`;
+    
+    // Encode message untuk URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Buat WhatsApp URL
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    
+    // Buka WhatsApp di tab baru
+    window.open(whatsappUrl, '_blank');
   };
 
   const csvExample = `callRecordId,calldate,callTime,callCloseReason,hourGroup
@@ -286,25 +304,33 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
               Kirim email untuk pertanyaan teknis atau bantuan lebih lanjut
             </p>
             <a
-              href="mailto:support@company.com"
+              href="mailto:jupri.eka@mkncorp.com"
               className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
             >
-              support@company.com
+              jupri.eka@mkncorp.com
               <ExternalLink className="w-4 h-4 ml-2" />
             </a>
           </div>
 
+          {/* WhatsApp Section - UPDATED */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center space-x-3 mb-4">
-              <MessageCircle className="w-6 h-6 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Live Chat</h3>
+              <MessageCircle className="w-6 h-6 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900">WhatsApp Support</h3>
             </div>
             <p className="text-gray-600 mb-4">
-              Chat langsung dengan tim support kami
+              Chat langsung via WhatsApp dengan tim support kami
             </p>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              Mulai Chat
+            <button 
+              onClick={handleWhatsAppClick}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Mulai Chat WhatsApp</span>
             </button>
+            <p className="text-xs text-gray-500 mt-2">
+              Senin - Jumat: 09:00 - 17:00 WIB
+            </p>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -315,25 +341,67 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
             <p className="text-gray-600 mb-4">
               Hubungi kami untuk support urgent
             </p>
-            <p className="text-gray-900 font-medium">+62 21 1234 5678</p>
+            <p className="text-gray-900 font-medium">+62 549 523099 ext 1234</p>
             <p className="text-sm text-gray-500 mt-1">Senin - Jumat: 09:00 - 17:00 WIB</p>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center space-x-3 mb-4">
               <Shield className="w-6 h-6 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Admin Access</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {isAdmin ? 'Hak Akses Anda' : 'Akses Anda'}
+              </h3>
             </div>
-            <p className="text-gray-600 mb-4">
-              {isAdmin 
-                ? 'Anda memiliki akses admin penuh'
-                : 'Butuh akses admin? Hubungi Super Admin'
-              }
-            </p>
-            {!isAdmin && (
-              <p className="text-sm text-gray-500">
-                Email: admin@company.com
-              </p>
+            {isAdmin ? (
+              <>
+                <p className="text-gray-600 mb-3">
+                  Anda memiliki akses admin penuh dengan fitur:
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    Upload & hapus data CSV
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    Export laporan lengkap
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    Akses semua analytics
+                  </li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 mb-3">
+                  Akses Anda saat ini sebagai User:
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600 mb-3">
+                  <li className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    Lihat analytics & dashboard
+                  </li>
+                  <li className="flex items-center">
+                    <XCircle className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" />
+                     Tidak bisa Export laporan (read-only)
+                  </li>
+                  <li className="flex items-center">
+                    <XCircle className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" />
+                    Tidak bisa upload/hapus data
+                  </li>
+                </ul>
+                <p className="text-sm text-gray-600 mb-2">
+                  Butuh akses admin? Hubungi:
+                </p>
+                <a
+                  href="mailto:jupri.eka@mkncorp.com"
+                  className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  jupri.eka@mkncorp.com
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </>
             )}
           </div>
         </div>
@@ -411,7 +479,7 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
                     </p>
                   </div>
 
-                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                  {/* <div className="bg-white rounded-lg p-4 border border-blue-200">
                     <div className="flex items-center space-x-3 mb-2">
                       <Download className="w-5 h-5 text-green-600" />
                       <h4 className="font-semibold text-gray-900">Export Reports</h4>
@@ -419,7 +487,7 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
                     <p className="text-sm text-gray-600">
                       Download laporan dalam format CSV atau Excel untuk periode tertentu sesuai kebutuhan analisis Anda.
                     </p>
-                  </div>
+                  </div> */}
 
                   <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
                     <div className="flex items-center space-x-3 mb-2">
