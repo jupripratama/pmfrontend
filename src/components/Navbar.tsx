@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
   activeTab: string;
@@ -9,6 +10,12 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();        // panggil fungsi logout dari context
+    navigate('/');   // arahkan balik ke halaman login TANPA reload
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCallRecordsDropdownOpen, setIsCallRecordsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -153,7 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 {user?.fullName?.charAt(0).toUpperCase() || 'U'}
               </div>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
                 title="Logout"
               >

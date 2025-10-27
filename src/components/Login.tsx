@@ -1,6 +1,7 @@
 // components/Login.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { BarChart3, Eye, EyeOff, LogIn, AlertCircle, CheckCircle2, Lock, User } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -11,6 +12,8 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { login } = useAuth();
+  
+  const navigate = useNavigate();
 
   // Clear messages when user starts typing
   useEffect(() => {
@@ -39,6 +42,8 @@ const Login: React.FC = () => {
         username: username.trim(), 
         password: password.trim() 
       });
+      navigate('/dashboard');
+      
       
       setSuccess('Login berhasil! Mengarahkan ke dashboard...');
       setUsername('');

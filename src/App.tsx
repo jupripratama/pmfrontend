@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -8,13 +8,10 @@ import CallRecordsPage from './components/CallRecordsPage';
 import UploadPage from './components/UploadPage';
 import ExportPage from './components/ExportPage';
 import FleetStatisticsPage from './components/FleetStatisticsPage';
-
-import './App.css';
 import DocsPage from './components/DocsPage';
 
-function AppContent() {
+function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
 
   if (isLoading) {
     return (
@@ -24,64 +21,91 @@ function AppContent() {
     );
   }
 
-  if (!user) {
-    return <Login />;
-  }
+  if (!user) return <Navigate to="/" replace />;
 
-  const handleUploadBack = () => {
-    console.log('Navigating back from upload');
-    setActiveTab('dashboard');
-  };
+  return children;
+}
 
-  const handleExportBack = () => {
-    console.log('Navigating back from export');
-    setActiveTab('dashboard');
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard setActiveTab={setActiveTab} />; {/* ← TAMBAH PROPS DI SINI */}
-      case 'callrecords':
-        return <CallRecordsPage />;
-      case 'docs':
-      return <DocsPage setActiveTab={setActiveTab} />;  
-      case 'upload':
-        return (
-          <UploadPage 
-            onBack={handleUploadBack} 
-            setActiveTab={setActiveTab}
-          />
-        );
-      case 'export':
-        return (
-          <ExportPage 
-            onBack={handleExportBack}
-            setActiveTab={setActiveTab}
-          />
-        );
-      case 'fleet-statistics':
-        return <FleetStatisticsPage />;
-      default:
-        return <Dashboard setActiveTab={setActiveTab} />; {/* ← DAN DI SINI */}
-    }
-  };
-
+function AppRoutes() {
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderContent()}
-    </Layout>
+    <Routes>
+      {/* Login */}
+      <Route path="/" element={<Login />} />
+
+      {/* Dashboard dan halaman lain */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="dashboard" setActiveTab={() => {}}>
+              <Dashboard setActiveTab={() => {}} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/callrecords"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="callrecords" setActiveTab={() => {}}>
+              <CallRecordsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/upload"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="upload" setActiveTab={() => {}}>
+              <UploadPage setActiveTab={() => {}} onBack={() => {}} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/export"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="export" setActiveTab={() => {}}>
+              <ExportPage setActiveTab={() => {}} onBack={() => {}} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/fleet-statistics"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="fleet-statistics" setActiveTab={() => {}}>
+              <FleetStatisticsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/docs"
+        element={
+          <ProtectedRoute>
+            <Layout activeTab="docs" setActiveTab={() => {}}>
+              <DocsPage setActiveTab={() => {}} />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <AppRoutes />
       </AuthProvider>
     </Router>
   );
 }
-
-export default App;
