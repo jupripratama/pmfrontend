@@ -23,8 +23,8 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
   // Sync activeTab with current route
   useEffect(() => {
-    const currentTab = location.pathname.replace('/', '') || 'dashboard';
-    setActiveTab(currentTab);
+    const path = location.pathname.replace('/', '') || 'dashboard';
+    setActiveTab(path);
   }, [location.pathname, setActiveTab]);
 
   // Close dropdown when clicking outside

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// ✅ GANTI INI
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -21,42 +22,23 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
     );
   }
 
-  if (!user) return <Navigate to="/" replace />;
-
-  return children;
+  return user ? children : <Navigate to="/" replace />;
 }
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { user } = useAuth();
+  const location = useLocation();
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       <Routes>
-        <Route 
-          path="/dashboard" 
-          element={<Dashboard setActiveTab={setActiveTab} />} 
-        />
-        <Route 
-          path="/callrecords" 
-          element={<CallRecordsPage />} 
-        />
-        <Route 
-          path="/upload" 
-          element={<UploadPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} 
-        />
-        <Route 
-          path="/export" 
-          element={<ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} 
-        />
-        <Route 
-          path="/fleet-statistics" 
-          element={<FleetStatisticsPage />} 
-        />
-        <Route 
-          path="/docs" 
-          element={<DocsPage setActiveTab={setActiveTab} />} 
-        />
+        <Route path="/dashboard" element={<Dashboard setActiveTab={setActiveTab} />} />
+        <Route path="/callrecords" element={<CallRecordsPage />} />
+        <Route path="/upload" element={<UploadPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
+        <Route path="/export" element={<ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
+        <Route path="/fleet-statistics" element={<FleetStatisticsPage />} />
+        <Route path="/docs" element={<DocsPage setActiveTab={setActiveTab} />} />
         
         {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -81,21 +63,15 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {!user ? (
-        // Public routes
-        <Route path="/" element={<Login />} />
-      ) : (
-        // Protected routes
-        <Route path="/*" element={<AppContent />} />
-      )}
-      {/* Catch all for unauthenticated */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/*" element={user ? <AppContent /> : <Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 export default function App() {
   return (
+    // ✅ PAKAI HashRouter
     <Router>
       <AuthProvider>
         <AppRoutes />
