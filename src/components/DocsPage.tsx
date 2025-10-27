@@ -13,17 +13,26 @@ import {
   User,
   Calendar
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; 
 
 interface DocsProps {
   setActiveTab?: (tab: string) => void;
 }
 
 const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
-  const handleBack = () => {
+  const navigate = useNavigate(); 
+
+   const handleBack = () => {
     if (setActiveTab) {
       setActiveTab('dashboard');
-    } else {
-      window.history.back();
+    }
+    navigate('/dashboard'); // ✅ PAKAI navigate()
+  };
+
+  const handleSectionClick = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -34,6 +43,14 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
 3,2024-01-15,10:05:18,4,10
 4,2024-01-15,11:20:33,2,11
 5,2024-01-15,14:45:12,0,14`;
+
+const sections = [
+    { id: 'format-umum', title: '📋 Format Umum' },
+    { id: 'struktur-kolom', title: '🗂️ Struktur Kolom' },
+    { id: 'kode-alasan', title: '📞 Kode Alasan Panggilan' },
+    { id: 'contoh-file', title: '📄 Contoh File' },
+    { id: 'tips-upload', title: '💡 Tips Upload' }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -60,26 +77,20 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - DIPERBAIKI */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Daftar Isi</h3>
             <nav className="space-y-2">
-              <a href="#format-umum" className="block py-2 px-3 text-blue-600 bg-blue-50 rounded-lg font-medium">
-                📋 Format Umum
-              </a>
-              <a href="#struktur-kolom" className="block py-2 px-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-                🗂️ Struktur Kolom
-              </a>
-              <a href="#kode-alasan" className="block py-2 px-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-                📞 Kode Alasan Panggilan
-              </a>
-              <a href="#contoh-file" className="block py-2 px-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-                📄 Contoh File
-              </a>
-              <a href="#tips-upload" className="block py-2 px-3 text-gray-700 hover:bg-gray-50 rounded-lg">
-                💡 Tips Upload
-              </a>
+              {sections.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => handleSectionClick(section.id)}
+                  className="flex items-center w-full text-left py-2 px-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium">{section.title}</span>
+                </button>
+              ))}
             </nav>
           </div>
         </div>
@@ -412,4 +423,4 @@ const DocsPage: React.FC<DocsProps> = ({ setActiveTab }) => {
   );
 };
 
-export default DocsPage;
+export default React.memo(DocsPage);
