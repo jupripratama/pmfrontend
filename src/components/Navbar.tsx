@@ -1,263 +1,228 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { BarChart3, Phone, Download, Upload, User, LogOut, Menu, X, ChevronDown, Users } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  BarChart3,
+  Phone,
+  Upload,
+  Download,
+  Users,
+  LogOut,
+  User,
+  Menu,
+  X,
+  ChevronDown,
+} from "lucide-react";
 
-interface NavbarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-// Komponen Navbar utama
-const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+const Navbar: React.FC<{ activeTab: string; setActiveTab: (tab: string) => void }> = ({
+  activeTab,
+  setActiveTab,
+}) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCallRecordsDropdownOpen, setIsCallRecordsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Check if user has full access (role 1 atau 2)
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
   const hasFullAccess = user?.roleId === 1 || user?.roleId === 2;
 
-  // Sync activeTab with current route
   useEffect(() => {
-    const path = location.pathname.replace('/', '') || 'dashboard';
+    const path = location.pathname.replace("/", "") || "dashboard";
     setActiveTab(path);
   }, [location.pathname, setActiveTab]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsCallRecordsDropdownOpen(false);
-      }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      )
+        setIsDropdownOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node))
+        setIsProfileOpen(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleMenuClick = (tab: string) => {
+    navigate(`/${tab}`);
+    setActiveTab(tab);
+    setIsDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+  };
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
-  const handleMenuClick = (menuId: string) => {
-    setActiveTab(menuId);
-    navigate(`/${menuId}`);
-    setIsMobileMenuOpen(false);
-    setIsCallRecordsDropdownOpen(false);
-  };
-
-  const mainMenuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+    ...(hasFullAccess
+      ? [{ id: "fleet-statistics", label: "Fleet Statistics", icon: Users }]
+      : []),
   ];
 
-  // Call Records menu items
-  const callRecordsMenuItems = [
-    { id: 'callrecords', label: 'View Records', icon: Phone },
-    ...(hasFullAccess ? [
-      { id: 'upload', label: 'Upload CSV', icon: Upload },
-      { id: 'export', label: 'Export Data', icon: Download }
-    ] : [])
+  const callRecordsMenu = [
+    { id: "callrecords", label: "View Records", icon: Phone },
+    ...(hasFullAccess
+      ? [
+          { id: "upload", label: "Upload CSV", icon: Upload },
+          { id: "export", label: "Export Data", icon: Download },
+        ]
+      : []),
   ];
-
-  // Analytics menu
-  const analyticsMenuItems = hasFullAccess ? [
-    { id: 'fleet-statistics', label: 'Fleet Statistics', icon: Users },
-  ] : [];
 
   return (
-    <nav className="bg-white shadow-lg border-b border-gray-200 w-full">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Left side - Logo and main menu */}
-          <div className="flex items-center">
-            {/* Logo */}
-            <div className="flex-shrink-0 flex items-center">
-              <BarChart3 className="w-8 h-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Call Analytics</span>
-            </div>
+    <motion.nav
+      initial={{ opacity: 0, y: -15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="sticky top-0 z-[9999] bg-gradient-to-r from-blue-600/40 via-indigo-500/40 to-purple-500/40 backdrop-blur-xl border-b border-white/20 shadow-[0_2px_10px_rgba(0,0,0,0.1)]"
+    >
+      <div className="relative flex justify-between items-center px-6 h-16 max-w-7xl mx-auto">
+        {/* 🌐 Logo */}
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          className="flex items-center cursor-pointer select-none"
+          onClick={() => handleMenuClick("dashboard")}
+        >
+          <BarChart3 className="w-6 h-6 text-white drop-shadow-md" />
+          <span className="ml-2 text-lg font-bold text-white tracking-wide">
+            Call Analytics
+          </span>
+        </motion.div>
 
-            {/* Desktop Menu */}
-            <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
-              {/* Main Menu Items */}
-              {mainMenuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleMenuClick(item.id)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === item.id
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </button>
-              ))}
+        {/* 💫 Desktop Menu */}
+        <div className="hidden md:flex items-center space-x-4">
+          {navItems.map((item) => (
+            <motion.button
+              whileHover={{ y: -2, scale: 1.05 }}
+              key={item.id}
+              onClick={() => handleMenuClick(item.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === item.id
+                  ? "bg-white/20 text-white shadow-inner"
+                  : "text-white/80 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <item.icon className="w-4 h-4 inline-block mr-1" />
+              {item.label}
+            </motion.button>
+          ))}
 
-              {/* Call Records Dropdown */}
-              {callRecordsMenuItems.length > 0 && (
-                <div className="relative" ref={dropdownRef}>
+          {/* Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <motion.button
+              whileHover={{ y: -2 }}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white/80 hover:text-white hover:bg-white/10"
+            >
+              <Phone className="w-4 h-4 mr-1" /> Call Records
+              <ChevronDown
+                className={`w-4 h-4 ml-1 transition-transform ${
+                  isDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </motion.button>
+            {isDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute left-0 mt-2 w-52 bg-white/90 backdrop-blur-xl border border-gray-200 rounded-xl shadow-xl py-2 z-[9999]"
+              >
+                {callRecordsMenu.map((item) => (
                   <button
-                    onClick={() => setIsCallRecordsDropdownOpen(!isCallRecordsDropdownOpen)}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      callRecordsMenuItems.some(item => activeTab === item.id)
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    key={item.id}
+                    onClick={() => handleMenuClick(item.id)}
+                    className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-blue-50 ${
+                      activeTab === item.id ? "text-blue-600" : "text-gray-700"
                     }`}
                   >
-                    <Phone className="w-4 h-4 mr-2" />
-                    Call Records
-                    <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${
-                      isCallRecordsDropdownOpen ? 'rotate-180' : ''
-                    }`} />
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
                   </button>
-
-                  {/* Dropdown Menu */}
-                  {isCallRecordsDropdownOpen && (
-                    <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-                      {callRecordsMenuItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleMenuClick(item.id)}
-                          className={`flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors ${
-                            activeTab === item.id ? 'bg-blue-50 text-blue-700' : ''
-                          }`}
-                        >
-                          <item.icon className="w-4 h-4 mr-3" />
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Analytics Menu Items */}
-              {analyticsMenuItems.length > 0 && analyticsMenuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleMenuClick(item.id)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === item.id
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Right side - User profile and mobile menu button */}
-          <div className="flex items-center">
-            {/* User Profile */}
-            <div className="flex items-center space-x-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
-                <p className="text-xs text-gray-500">
-                  {user?.roleName} 
-                  {!hasFullAccess && ' (Limited Access)'}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                {user?.fullName?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden ml-4">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-              >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
+                ))}
+              </motion.div>
+            )}
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-2 bg-white">
-            {/* Main Menu Items */}
-            {mainMenuItems.map((item) => (
+        {/* 👤 Profile */}
+        <div className="relative" ref={profileRef}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            className="bg-white/20 backdrop-blur-lg w-9 h-9 flex items-center justify-center rounded-full border border-white/40 shadow-sm text-white font-semibold"
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+          >
+            {user?.fullName?.charAt(0).toUpperCase() || "U"}
+          </motion.button>
+
+          {isProfileOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute right-0 mt-3 w-56 bg-white/90 backdrop-blur-xl border border-gray-200 rounded-xl shadow-xl z-[9999]"
+            >
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="font-semibold text-gray-900">{user?.fullName}</p>
+                <p className="text-xs text-gray-500">{user?.roleName}</p>
+              </div>
               <button
-                key={item.id}
-                onClick={() => handleMenuClick(item.id)}
-                className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  activeTab === item.id
-                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                }`}
+                onClick={() => navigate("/profile")}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
               >
-                <item.icon className="w-5 h-5 mr-3" />
-                {item.label}
+                <User className="w-4 h-4 mr-2" /> Profil Saya
               </button>
-            ))}
+              <button
+                onClick={handleLogout}
+                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4 mr-2" /> Logout
+              </button>
+            </motion.div>
+          )}
+        </div>
 
-            {/* Call Records Menu Items */}
-            {callRecordsMenuItems.length > 0 && (
-              <div className="border-t border-gray-200 mt-2 pt-2">
-                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Call Records
-                </div>
-                {callRecordsMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleMenuClick(item.id)}
-                    className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                      activeTab === item.id
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 mr-3" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Analytics Menu Items */}
-            {analyticsMenuItems.length > 0 && (
-              <div className="border-t border-gray-200 mt-2 pt-2">
-                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Analytics
-                </div>
-                {analyticsMenuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleMenuClick(item.id)}
-                    className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                      activeTab === item.id
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
-                  >
-                    <item.icon className="w-5 h-5 mr-3" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* 📱 Mobile Menu */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="md:hidden text-white hover:text-blue-200"
+        >
+          {isMobileMenuOpen ? <X /> : <Menu />}
+        </button>
       </div>
-    </nav>
+
+      {isMobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="md:hidden bg-white/90 backdrop-blur-xl border-t border-gray-200 py-3 space-y-2 px-4 shadow-inner"
+        >
+          {[...navItems, ...callRecordsMenu].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleMenuClick(item.id)}
+              className={`flex items-center w-full px-3 py-2 rounded-md text-sm font-medium ${
+                activeTab === item.id
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <item.icon className="w-4 h-4 mr-2" /> {item.label}
+            </button>
+          ))}
+        </motion.div>
+      )}
+    </motion.nav>
   );
 };
 
