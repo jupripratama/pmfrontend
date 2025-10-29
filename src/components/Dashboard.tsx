@@ -1,18 +1,23 @@
-import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  BarChart3, 
-  Upload, 
-  TrendingUp, 
+import React from "react";
+import { motion, cubicBezier } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  BarChart3,
+  Upload,
+  TrendingUp,
   FileText,
   HelpCircle,
   ArrowRight,
-  CheckCircle,
-  Database,
   Shield,
-  AlertTriangle
-} from 'lucide-react';  
-import { useNavigate } from 'react-router-dom';
+  Cpu,
+  Wifi,
+  Sparkles,
+  Layers,
+} from "lucide-react";
+import { Variants } from "framer-motion";
+
+// ✅ Hapus import tidak terpakai (Settings, each, dll.)
 
 interface DashboardProps {
   setActiveTab: (tab: string) => void;
@@ -20,255 +25,341 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const navigate = useNavigate();
-  const hasData = false;
   const { user } = useAuth();
-  
-  // Cek role user
-  const isAdmin = user?.roleId === 1 || user?.roleId === 2;
-  const isRegularUser = !isAdmin;
 
-   const handleActionClick = (tab: string) => {
-    console.log('🔄 Switching to tab:', tab);
-    setActiveTab(tab);
-    navigate(`/${tab}`); // ✅ PAKAI navigate()
+  const isAdmin = user?.roleId === 1 || user?.roleId === 2;
+
+  // 🎬 Framer Motion Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 },
+    },
   };
 
-  // Quick Actions HANYA untuk Admin
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
+      },
+    },
+  };
+
+ const cardHoverVariants: Variants = {
+  rest: {
+    scale: 1,
+    y: 0,
+    rotate: 0,
+  },
+  hover: {
+    scale: 1.05,
+    y: -8,
+    rotate: 1,
+    transition: {
+      type: "spring" as const, // ✅ pakai literal, bukan string biasa
+      stiffness: 400,
+      damping: 10,
+    },
+  },
+};
+
+ const floatingVariants: Variants = {
+  float: {
+    y: [0, -10, 0],
+    transition: {
+      duration: 3,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+  const glowVariants: Variants = {
+  initial: {
+    boxShadow:
+      "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
+  },
+  glow: {
+    boxShadow: [
+      "0 4px 6px -1px rgba(59,130,246,0.1), 0 2px 4px -1px rgba(59,130,246,0.06)",
+      "0 10px 15px -3px rgba(59,130,246,0.2), 0 4px 6px -2px rgba(59,130,246,0.1)",
+      "0 4px 6px -1px rgba(59,130,246,0.1), 0 2px 4px -1px rgba(59,130,246,0.06)",
+    ],
+    transition: {
+      duration: 2,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
+
+const questionIconVariants = {
+  float: {
+    y: [0, -4, 0],
+    transition: { duration: 5, repeat: Infinity, ease: "easeInOut" },
+  },
+};
+
+  const handleActionClick = (tab: string) => {
+    setActiveTab(tab);
+    navigate(`/${tab}`);
+  };
+
+  // 📊 Data definisi aksi & fitur
   const adminActions = [
     {
       icon: Upload,
       title: "Upload Data CSV",
-      description: "Upload file call records untuk analisis",
+      description: "Unggah file untuk analisis atau integrasi data.",
       color: "from-blue-500 to-cyan-500",
-      tab: "upload"
+      tab: "upload",
     },
     {
       icon: BarChart3,
-      title: "View Call Records", 
-      description: "Lihat dan analisis data call records",
-      color: "from-purple-500 to-pink-500", 
-      tab: "callrecords"
-    }
+      title: "Analisis Data",
+      description: "Pantau tren dan insight dari berbagai sumber data.",
+      color: "from-purple-500 to-pink-500",
+      tab: "callrecords",
+    },
   ];
 
-  // Quick Actions HANYA untuk User Biasa
   const userActions = [
     {
       icon: BarChart3,
-      title: "Lihat Demo Analytics", 
-      description: "Explore analytics dengan data sample",
-      color: "from-purple-500 to-pink-500", 
-      tab: "callrecords"
+      title: "Lihat Demo Analytics",
+      description: "Jelajahi data contoh dan visualisasi interaktif.",
+      color: "from-purple-500 to-pink-500",
+      tab: "callrecords",
     },
     {
       icon: FileText,
-      title: "Panduan Format Data",
-      description: "Pelajari struktur data yang didukung",
+      title: "Panduan Penggunaan",
+      description: "Pelajari cara kerja platform dan format data.",
       color: "from-green-500 to-emerald-500",
-      tab: "docs"
-    }
+      tab: "docs",
+    },
+  ];
+
+  const platformOverview = [
+    {
+      icon: Layers,
+      title: "3 Modul Aktif",
+      desc: "Analytics, Call Records, dan PM Radio",
+      color: "bg-indigo-100 text-indigo-700",
+    },
+    {
+      icon: Wifi,
+      title: "Koneksi Stabil",
+      desc: "Terhubung ke server utama",
+      color: "bg-green-100 text-green-700",
+    },
+    {
+      icon: Cpu,
+      title: "Kinerja Optimal",
+      desc: "Sistem berjalan tanpa hambatan",
+      color: "bg-blue-100 text-blue-700",
+    },
   ];
 
   const features = [
     {
       icon: TrendingUp,
-      title: "Analisis Trend", 
-      description: "Lihat pola dan tren panggilan"
+      title: "Analisis Trend",
+      description: "Temukan pola dan insight data.",
     },
     {
       icon: FileText,
       title: "Export Laporan",
-      description: "Download report dalam format Excel/CSV"
+      description: "Download laporan Excel/CSV.",
     },
     {
       icon: Shield,
-      title: "Data Aman",
-      description: "Data Anda tersimpan dengan aman"
-    }
-  ];
-
-  const systemStatus = [
-    { 
-      label: 'Status Sistem', 
-      status: 'ready', 
-      icon: CheckCircle
+      title: "Keamanan Data",
+      description: "Data tersimpan dengan aman.",
     },
-    { 
-      label: 'Database', 
-      status: 'connected', 
-      icon: Database
-    }
   ];
 
-  // Gunakan actions berdasarkan role
   const currentActions = isAdmin ? adminActions : userActions;
-  const actionTitle = isAdmin ? 'Aksi Admin' : 'Mulai Explorasi';
+  const actionTitle = isAdmin ? "Aksi Administrator" : "Mulai Eksplorasi";
 
-  if (!hasData) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        {/* Simple Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Analytics</h1>
-          <p className="text-gray-600 mt-1">
-            Selamat datang, {user?.fullName} 
-            <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-              isAdmin ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-            }`}>
-              {isAdmin ? 'Admin' : 'User'}
-            </span>
-          </p>
-        </div>
-
-        {/* Welcome Card */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                {isAdmin ? 'Kelola Data Call Records' : 'Analytics Call Records'}
-              </h2>
-              <p className="text-gray-600">
-                {isAdmin 
-                  ? 'Upload dan kelola data call records untuk analisis mendalam.'
-                  : 'Lihat analytics dan insights dari data call records.'
-                }
-              </p>
-            </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <BarChart3 className="w-8 h-8 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Admin Notice untuk User Biasa */}
-        {isRegularUser && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-yellow-800 font-medium">Akses Terbatas</p>
-                <p className="text-yellow-700 text-sm mt-1">
-                  Anda login sebagai User. Fitur upload CSV hanya tersedia untuk Admin.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                {actionTitle}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentActions.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleActionClick(action.tab)}
-                    className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all text-left group w-full"
-                  >
-                    <div className={`p-2 rounded-lg w-10 h-10 mb-3 bg-gradient-to-r ${action.color}`}>
-                      <action.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <h4 className="font-semibold text-gray-900 mb-1">{action.title}</h4>
-                    <p className="text-sm text-gray-600 mb-2">{action.description}</p>
-                    <div className="flex items-center text-blue-600 text-sm font-medium">
-                      <span>Mulai</span>
-                      <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Features */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Fitur Utama</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {features.map((feature, index) => (
-                  <div key={index} className="p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <feature.icon className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900 text-sm">{feature.title}</h4>
-                        <p className="text-xs text-gray-600 mt-1">{feature.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* System Status */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Sistem</h3>
-              <div className="space-y-3">
-                {systemStatus.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <item.icon className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">{item.label}</span>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'ready' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {item.status === 'ready' ? 'Ready' : 'Connected'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Help Card */}
-            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-              <HelpCircle className="w-6 h-6 text-blue-600 mb-2" />
-              <h4 className="font-semibold text-gray-900 mb-1">Butuh Bantuan?</h4>
-              <p className="text-sm text-gray-600 mb-3">
-                {isAdmin 
-                  ? 'Panduan upload dan manajemen data'
-                  : 'Panduan melihat analytics dan reports'
-                }
-              </p>
-              <button 
-                onClick={() => handleActionClick('docs')}
-                className="w-full bg-white text-blue-600 py-2 rounded-lg font-medium text-sm border border-blue-200 hover:bg-blue-100 transition-colors"
-              >
-                Buka Panduan
-              </button>
-            </div>
-
-            {/* Info Role */}
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-2">Info Akses</h4>
-              <p className="text-xs text-gray-600">
-                {isAdmin 
-                  ? 'Anda memiliki akses penuh: Upload, Delete, dan Export data.'
-                  : 'Anda dapat melihat analytics dan reports dari data yang tersedia.'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Jika ada data (future implementation)
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="text-center py-12">
-        <BarChart3 className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-        <p className="text-gray-600">Data analytics akan muncul setelah upload file.</p>
-      </div>
-    </div>
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 p-6"
+    >
+      {/* 🏁 Banner */}
+      <motion.div
+        variants={itemVariants}
+        className="relative overflow-hidden rounded-2xl mb-10 shadow-lg bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 text-white"
+      >
+        <motion.div
+          variants={glowVariants}
+          initial="initial"
+          animate="glow"
+          className="absolute inset-0"
+        />
+        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" />
+        <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row justify-between items-center">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            <motion.h1
+              variants={itemVariants}
+              className="text-3xl md:text-4xl font-bold mb-2 flex items-center"
+            >
+              <motion.div variants={floatingVariants} animate="float">
+                <Sparkles className="w-8 h-8 mr-2 text-yellow-300" />
+              </motion.div>
+              Selamat Datang, {user?.fullName?.split(" ")[0]}!
+            </motion.h1>
+            <motion.p variants={itemVariants} className="text-blue-100 max-w-lg">
+              {isAdmin
+                ? "Kelola, analisis, dan integrasikan data dari berbagai sumber untuk insight terbaik."
+                : "Eksplorasi insight dari data operasional Anda dengan visualisasi interaktif dan dinamis."}
+            </motion.p>
+          </motion.div>
+
+          {/* 🧩 Role Card */}
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ rotate: 3, scale: 1.05 }}
+            className="mt-6 md:mt-0 bg-white/20 backdrop-blur-lg rounded-xl p-4 border border-white/30 shadow-inner"
+          >
+            <p className="text-sm text-white/90 mb-1">Peran Anda</p>
+            <div className="px-3 py-1 rounded-lg bg-white/30 font-semibold">
+              {isAdmin ? "Administrator" : "Data Viewer"}
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* 🔧 Content Section */}
+      <motion.div
+        variants={containerVariants}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+      >
+        {/* Left Column */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Quick Actions */}
+          <motion.div
+            variants={itemVariants}
+            className="backdrop-blur-xl bg-white/70 border border-gray-200 rounded-2xl p-6 shadow-sm"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{actionTitle}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {currentActions.map((action, i) => (
+                <motion.button
+                  key={i}
+                  variants={cardHoverVariants}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleActionClick(action.tab)}
+                  className="p-5 rounded-xl bg-white shadow-sm hover:shadow-md border border-gray-100 text-left transition-all group"
+                >
+                  <motion.div
+                    className={`p-3 rounded-lg inline-flex bg-gradient-to-r ${action.color}`}
+                    whileHover={{ rotate: 15 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <action.icon className="w-6 h-6 text-white" />
+                  </motion.div>
+                  <h4 className="font-semibold text-gray-900 mt-3 mb-1">{action.title}</h4>
+                  <p className="text-sm text-gray-600">{action.description}</p>
+                  <div className="flex items-center text-blue-600 text-sm font-medium mt-2">
+                    Mulai
+                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Features */}
+          <motion.div
+            variants={itemVariants}
+            className="backdrop-blur-xl bg-white/70 border border-gray-200 rounded-2xl p-6 shadow-sm"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Fitur Utama</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {features.map((f, i) => (
+                <motion.div
+                  key={i}
+                  whileHover={{ y: -8, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors flex items-start space-x-3"
+                >
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <f.icon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 text-sm">{f.title}</h4>
+                    <p className="text-xs text-gray-600 mt-1">{f.description}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-6">
+          {/* Platform Overview */}
+          <motion.div
+            variants={itemVariants}
+            className="backdrop-blur-xl bg-white/70 border border-gray-200 rounded-2xl p-6 shadow-sm"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ikhtisar Platform</h3>
+            <div className="space-y-3">
+              {platformOverview.map((item, i) => (
+                <motion.div
+                  key={i}
+                  whileHover={{ x: 5, backgroundColor: "rgba(243,244,246,0.8)" }}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-xl transition"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-lg ${item.color}`}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-600">{item.desc}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Help Section */}
+          <motion.div
+            whileHover={{ y: -5, scale: 1.02 }}
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6"
+          >
+            
+              <HelpCircle className="text-blue-500" />
+           
+            <h4 className="font-semibold text-gray-900 mb-1">Butuh Bantuan?</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              {isAdmin
+                ? "Pelajari panduan upload dan integrasi data sistem."
+                : "Baca panduan penggunaan dashboard dan analytics."}
+            </p>
+            <button
+              onClick={() => handleActionClick("docs")}
+              className="w-full bg-white text-blue-600 py-2 rounded-lg font-medium text-sm border border-blue-200 hover:bg-blue-100 transition-colors"
+            >
+              Buka Panduan
+            </button>
+          </motion.div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
