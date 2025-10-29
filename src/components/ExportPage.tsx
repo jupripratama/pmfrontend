@@ -1,91 +1,146 @@
-import React, { useState } from 'react';
-import { FileDown, ArrowLeft, Calendar } from 'lucide-react';
-import { callRecordApi } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { FileDown, ArrowLeft, Calendar } from "lucide-react";
+import { motion, Variants, Transition } from "framer-motion";
+import { callRecordApi } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 interface ExportPageProps {
   onBack: () => void;
   setActiveTab?: (tab: string) => void;
 }
 
+// 🪶 Animasi masuk halaman
+const pageVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" },
+  },
+};
+
+
+
+// 🪄 Animasi tiap kartu (muncul berurutan)
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.15, duration: 0.4, ease: "easeOut" },
+  }),
+};
+
+// 🌈 Animasi hover kartu
+const spring: Transition = {
+  type: "spring",
+  stiffness: 300,
+  damping: 20,
+};
+
+const cardHoverVariants: Variants = {
+  rest: { scale: 1, y: 0 },
+  hover: {
+    scale: 1.03,
+    y: -5,
+    transition: spring,
+  },
+};
+
+const combinedCardVariants: Variants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.15, duration: 0.4, ease: "easeOut" },
+  }),
+  hover: {
+    scale: 1.03,
+    y: -5,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 20,
+    },
+  },
+};
+
 const ExportPage: React.FC<ExportPageProps> = ({ onBack, setActiveTab }) => {
-  
   const navigate = useNavigate();
-  const handleBack = () => {
-    // ✅ PASTIKAN onBack DIPANGGIL
-    if (onBack) {
-      onBack();
-    }
-    // ✅ DAN PAKAI navigate UNTUK ROUTING
-    navigate('/callrecords');
-  };
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExportCSV = async () => {
-    setIsExporting(true);
-    try {
-      await callRecordApi.exportDailyCsv(selectedDate);
-    } finally {
-      setIsExporting(false);
-    }
+  const handleBack = () => {
+    onBack?.();
+    navigate("/callrecords");
   };
 
-  const handleExportRangeCSV = async () => {
+  const handleExport = async (fn: () => Promise<void>) => {
     setIsExporting(true);
     try {
-      await callRecordApi.exportCsv(startDate, endDate);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportDailySummary = async () => {
-    setIsExporting(true);
-    try {
-      await callRecordApi.exportDailySummaryExcel(selectedDate);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportOverallSummary = async () => {
-    setIsExporting(true);
-    try {
-      await callRecordApi.exportOverallSummaryExcel(startDate, endDate);
+      await fn();
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <motion.div
+      className="max-w-5xl mx-auto flex-1 mt-10 md:mt-12 px-4"
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <button
-                         onClick={handleBack}
-                         className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                       >
-                         <ArrowLeft className="w-5 h-5" />
-                 </button>
-            {/* Container untuk teks yang akan di-tengah */}
-           <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <h1 className="text-2xl font-bold text-gray-900">Export Data</h1>
-              <p className="text-gray-600 mt-1">Export call records data in various formats</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <motion.div
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8"
+        variants={cardVariants}
+        custom={0}
+        initial="hidden"
+        animate="visible"
+      >
+        <div className="flex items-center justify-between relative">
+          <button
+            onClick={handleBack}
+            className="absolute left-0 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex-1 text-center">
+            <h1 className="text-3xl font-bold text-gray-900">Export Data</h1>
+            <p className="text-gray-500 mt-2">
+              Download call records or summaries in CSV and Excel format
+            </p>
+          </div>
+
+          <div className="w-9"></div>
+        </div>
+      </motion.div>
+
+      {/* Export Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Single Date Export */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <motion.div
+          className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+         variants={combinedCardVariants}
+          custom={1}
+          initial="hidden"
+          animate="visible"
+          whileHover="hover"
+          whileTap="hover"
+      
+        >
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
+            <Calendar className="w-5 h-5 mr-2 text-blue-600" />
             Export for Specific Date
           </h3>
           <div className="space-y-4">
@@ -102,29 +157,44 @@ const ExportPage: React.FC<ExportPageProps> = ({ onBack, setActiveTab }) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={handleExportCSV}
+                onClick={() =>
+                  handleExport(() => callRecordApi.exportDailyCsv(selectedDate))
+                }
                 disabled={isExporting}
                 className="bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <FileDown className="w-4 h-4 mr-2" />
-                {isExporting ? 'Exporting...' : 'CSV'}
+                {isExporting ? "Exporting..." : "CSV"}
               </button>
               <button
-                onClick={handleExportDailySummary}
+                onClick={() =>
+                  handleExport(() =>
+                    callRecordApi.exportDailySummaryExcel(selectedDate)
+                  )
+                }
                 disabled={isExporting}
                 className="bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <FileDown className="w-4 h-4 mr-2" />
-                {isExporting ? 'Exporting...' : 'Excel'}
+                {isExporting ? "Exporting..." : "Excel"}
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Date Range Export */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <motion.div
+          className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+          variants={combinedCardVariants}
+          custom={2}
+          initial="hidden"
+          animate="visible"
+          whileHover="hover"
+          whileTap="hover"
+          
+        >
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
+            <Calendar className="w-5 h-5 mr-2 text-blue-600" />
             Export for Date Range
           </h3>
           <div className="space-y-4">
@@ -154,49 +224,63 @@ const ExportPage: React.FC<ExportPageProps> = ({ onBack, setActiveTab }) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={handleExportRangeCSV}
+                onClick={() =>
+                  handleExport(() => callRecordApi.exportCsv(startDate, endDate))
+                }
                 disabled={isExporting}
                 className="bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <FileDown className="w-4 h-4 mr-2" />
-                {isExporting ? 'Exporting...' : 'CSV'}
+                {isExporting ? "Exporting..." : "CSV"}
               </button>
               <button
-                onClick={handleExportOverallSummary}
+                onClick={() =>
+                  handleExport(() =>
+                    callRecordApi.exportOverallSummaryExcel(startDate, endDate)
+                  )
+                }
                 disabled={isExporting}
                 className="bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <FileDown className="w-4 h-4 mr-2" />
-                {isExporting ? 'Exporting...' : 'Excel'}
+                {isExporting ? "Exporting..." : "Excel"}
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Export Information */}
-      <div className="bg-blue-50 rounded-xl p-6 mt-6 border border-blue-200">
-        <h3 className="text-lg font-semibold text-blue-900 mb-3">Export Information</h3>
+      {/* Info Section */}
+      <motion.div
+        className="bg-blue-50 rounded-2xl p-6 mt-8 border border-blue-200 shadow-sm"
+        variants={cardVariants}
+        custom={3}
+        initial="hidden"
+        animate="visible"
+      >
+        <h3 className="text-lg font-semibold text-blue-900 mb-3">
+          Export Information
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
           <div>
             <h4 className="font-semibold mb-2">CSV Export</h4>
             <ul className="space-y-1">
-              <li>• Raw call records data</li>
-              <li>• All columns from database</li>
-              <li>• Suitable for data analysis</li>
+              <li>• Raw call record data</li>
+              <li>• Includes all database columns</li>
+              <li>• Suitable for external data analysis</li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-2">Excel Export</h4>
             <ul className="space-y-1">
-              <li>• Formatted summary reports</li>
-              <li>• Charts and statistics</li>
-              <li>• Ready for presentation</li>
+              <li>• Pre-formatted summary reports</li>
+              <li>• Includes statistics and charts</li>
+              <li>• Great for presentations and reporting</li>
             </ul>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
