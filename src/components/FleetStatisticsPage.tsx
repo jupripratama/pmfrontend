@@ -1,7 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Phone, Clock, TrendingUp, Filter, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence, cubicBezier  } from 'framer-motion';
 import { callRecordApi } from '../services/api';
 import { FleetStatisticsDto, FleetStatisticType, TopCallerFleetDto, TopCalledFleetDto } from '../types/callRecord';
+
+// Animation Variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
+    }
+  }
+};
+
+const cardHoverVariants = {
+  rest: { 
+    scale: 1,
+    y: 0
+  },
+  hover: { 
+    scale: 1.02,
+    y: -4,
+    transition: {
+      duration: 0.3,
+      ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
+    }
+  }
+};
+
+const filterVariants = {
+  collapsed: { 
+    height: 0,
+    opacity: 0
+  },
+  expanded: { 
+    height: "auto",
+    opacity: 1,
+    transition: {
+      duration: 0.4,
+      ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
+    }
+  }
+};
+
+const tableRowVariants = {
+  hidden: { opacity: 0, x: -20 },
+  show: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: i * 0.05,
+      duration: 0.3
+    }
+  })
+};
 
 const FleetStatisticsPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -57,47 +123,79 @@ const FleetStatisticsPage: React.FC = () => {
     }
   };
 
-  // Handler untuk button type
   const handleTypeChange = (type: FleetStatisticType) => {
     setStatisticType(type);
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="max-w-6xl mx-auto flex-1 mt-10 md:mt-12 px-4 space-y-6"
+    >
       {/* Page Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <motion.div
+        variants={itemVariants}
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
+      >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Fleet Statistics</h1>
-            <p className="text-gray-600 mt-1">
+            <motion.h1 
+              className="text-2xl font-bold text-gray-900"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              Fleet Statistics
+            </motion.h1>
+            <motion.p 
+              className="text-gray-600 mt-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
               Analyze top caller and called fleet performance
-            </p>
+            </motion.p>
           </div>
-          <div className="mt-4 lg:mt-0 flex flex-wrap gap-3">
-            <button
+          <motion.div 
+            className="mt-4 lg:mt-0 flex flex-wrap gap-3"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={loadFleetStatistics}
               disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 shadow-sm"
             >
               <TrendingUp className="w-4 h-4 mr-2" />
               {isLoading ? 'Loading...' : 'Refresh'}
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Filters Section - IMPROVED DESIGN */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Filters Section */}
+      <motion.div
+        variants={itemVariants}
+        className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+      >
         {/* Filter Header */}
-        <div 
+        <motion.div 
+          whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.8)" }}
           className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer"
           onClick={() => setIsFilterExpanded(!isFilterExpanded)}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-200 mr-3">
+              <motion.div 
+                whileHover={{ rotate: 15 }}
+                className="p-2 bg-white rounded-lg shadow-sm border border-gray-200 mr-3"
+              >
                 <Filter className="w-5 h-5 text-blue-600" />
-              </div>
+              </motion.div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Filter Settings</h2>
                 <p className="text-sm text-gray-600">Customize your statistics view</p>
@@ -114,193 +212,248 @@ const FleetStatisticsPage: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Filter Content */}
-        {isFilterExpanded && (
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Date Filter - IMPROVED */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 flex items-center">
-                  <Calendar className="w-4 h-4 mr-2 text-blue-500" />
-                  Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:border-gray-400"
-                  />
+        <AnimatePresence>
+          {isFilterExpanded && (
+            <motion.div
+              variants={filterVariants}
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              className="p-6 overflow-hidden"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Date Filter */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center">
+                    <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                    Date
+                  </label>
+                  <div className="relative">
+                    <motion.input
+                      whileFocus={{ scale: 1.02 }}
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm hover:border-gray-400"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {formatDisplayDate(selectedDate)}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {formatDisplayDate(selectedDate)}
-                </p>
+
+                {/* Top Count Filter */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-purple-500" />
+                    Top Records
+                  </label>
+                  <div className="relative">
+                    <motion.select
+                      whileFocus={{ scale: 1.02 }}
+                      value={topCount}
+                      onChange={(e) => setTopCount(Number(e.target.value))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition-all shadow-sm hover:border-gray-400 bg-white"
+                    >
+                      <option value={5}>Top 5 Records</option>
+                      <option value={10}>Top 10 Records</option>
+                      <option value={20}>Top 20 Records</option>
+                      <option value={50}>Top 50 Records</option>
+                    </motion.select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Display top {topCount} performing fleets
+                  </p>
+                </div>
+
+                {/* Type Filter */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center">
+                    <Filter className="w-4 h-4 mr-2 text-green-500" />
+                    Statistics Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleTypeChange(FleetStatisticType.All)}
+                      className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                        statisticType === FleetStatisticType.All
+                          ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                      }`}
+                    >
+                      <span>All</span>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleTypeChange(FleetStatisticType.Caller)}
+                      className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                        statisticType === FleetStatisticType.Caller
+                          ? 'bg-green-600 text-white shadow-md transform scale-105'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                      }`}
+                    >
+                      <span>Top Caller</span>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleTypeChange(FleetStatisticType.Called)}
+                      className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
+                        statisticType === FleetStatisticType.Called
+                          ? 'bg-purple-600 text-white shadow-md transform scale-105'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
+                      }`}
+                    >
+                      <span>Top Called</span>
+                    </motion.button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {statisticType === FleetStatisticType.All && 'Showing all statistics'}
+                    {statisticType === FleetStatisticType.Caller && 'Focusing on callers'}
+                    {statisticType === FleetStatisticType.Called && 'Focusing on called fleets'}
+                  </p>
+                </div>
               </div>
 
-              {/* Top Count Filter - IMPROVED */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 flex items-center">
-                  <Users className="w-4 h-4 mr-2 text-purple-500" />
-                  Top Records
-                </label>
-                <div className="relative">
-                  <select
-                    value={topCount}
-                    onChange={(e) => setTopCount(Number(e.target.value))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none transition-all shadow-sm hover:border-gray-400 bg-white"
-                  >
-                    <option value={5}>Top 5 Records</option>
-                    <option value={10}>Top 10 Records</option>
-                    <option value={20}>Top 20 Records</option>
-                    <option value={50}>Top 50 Records</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                    <ChevronDown className="w-4 h-4" />
+              {/* Quick Stats Preview */}
+              {statistics && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="mt-6 pt-6 border-t border-gray-100"
+                >
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Preview</h3>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-blue-50 rounded-lg p-3"
+                    >
+                      <div className="text-lg font-bold text-blue-700">{statistics.totalCallsInDay.toLocaleString()}</div>
+                      <div className="text-xs text-blue-600">Total Calls</div>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-purple-50 rounded-lg p-3"
+                    >
+                      <div className="text-lg font-bold text-purple-700">{statistics.totalUniqueCallers.toLocaleString()}</div>
+                      <div className="text-xs text-purple-600">Unique Callers</div>
+                    </motion.div>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="bg-orange-50 rounded-lg p-3"
+                    >
+                      <div className="text-lg font-bold text-orange-700">{statistics.totalUniqueCalledFleets.toLocaleString()}</div>
+                      <div className="text-xs text-orange-600">Unique Called</div>
+                    </motion.div>
                   </div>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Display top {topCount} performing fleets
-                </p>
-              </div>
-
-              {/* Type Filter - IMPROVED Button Group */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 flex items-center">
-                  <Filter className="w-4 h-4 mr-2 text-green-500" />
-                  Statistics Type
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleTypeChange(FleetStatisticType.All)}
-                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
-                      statisticType === FleetStatisticType.All
-                        ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
-                    }`}
-                  >
-                    <span>All</span>
-                  </button>
-                  <button
-                    onClick={() => handleTypeChange(FleetStatisticType.Caller)}
-                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
-                      statisticType === FleetStatisticType.Caller
-                        ? 'bg-green-600 text-white shadow-md transform scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
-                    }`}
-                  >
-                    <span>Top Caller</span>
-                  </button>
-                  <button
-                    onClick={() => handleTypeChange(FleetStatisticType.Called)}
-                    className={`px-3 py-3 text-sm font-medium rounded-lg transition-all flex flex-col items-center justify-center ${
-                      statisticType === FleetStatisticType.Called
-                        ? 'bg-purple-600 text-white shadow-md transform scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
-                    }`}
-                  >
-                    <span>Top Called</span>
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500">
-                  {statisticType === FleetStatisticType.All && 'Showing all statistics'}
-                  {statisticType === FleetStatisticType.Caller && 'Focusing on callers'}
-                  {statisticType === FleetStatisticType.Called && 'Focusing on called fleets'}
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Stats Preview */}
-            {statistics && (
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Preview</h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-blue-50 rounded-lg p-3">
-                    <div className="text-lg font-bold text-blue-700">{statistics.totalCallsInDay.toLocaleString()}</div>
-                    <div className="text-xs text-blue-600">Total Calls</div>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-3">
-                    <div className="text-lg font-bold text-purple-700">{statistics.totalUniqueCallers.toLocaleString()}</div>
-                    <div className="text-xs text-purple-600">Unique Callers</div>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-3">
-                    <div className="text-lg font-bold text-orange-700">{statistics.totalUniqueCalledFleets.toLocaleString()}</div>
-                    <div className="text-xs text-orange-600">Unique Called</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <span className="text-red-700 font-medium">{error}</span>
-            <button 
-              onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            className="bg-red-50 border border-red-200 rounded-lg p-4 overflow-hidden"
+          >
+            <div className="flex items-center">
+              <span className="text-red-700 font-medium">{error}</span>
+              <button 
+                onClick={() => setError(null)}
+                className="ml-auto text-red-500 hover:text-red-700"
+              >
+                ×
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Overall Statistics - IMPROVED */}
+      {/* Overall Statistics */}
       {statistics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total Calls"
-            value={statistics.totalCallsInDay.toLocaleString()}
-            icon={Phone}
-            color="blue"
-            description="Total calls for the day"
-            
-          />
-          <StatCard
-            title="Unique Callers"
-            value={statistics.totalUniqueCallers.toLocaleString()}
-            icon={Users}
-            color="purple"
-            description="Unique caller fleets"
-            
-          />
-          <StatCard
-            title="Unique Called"
-            value={statistics.totalUniqueCalledFleets.toLocaleString()}
-            icon={Users}
-            color="orange"
-            description="Unique called fleets"
-       
-          />
-          {/* <StatCard
-            title="Avg. Duration"
-            value={statistics.totalDurationInDayFormatted}
-            icon={Clock}
-            color="green"
-            description="Average call duration"
-          /> */}
-        </div>
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {[
+            { title: "Total Calls", value: statistics.totalCallsInDay.toLocaleString(), icon: Phone, color: "blue", description: "Total calls for the day" },
+            { title: "Unique Callers", value: statistics.totalUniqueCallers.toLocaleString(), icon: Users, color: "purple", description: "Unique caller fleets" },
+            { title: "Unique Called", value: statistics.totalUniqueCalledFleets.toLocaleString(), icon: Users, color: "orange", description: "Unique called fleets" },
+          ].map((stat, index) => (
+            <motion.div
+              key={index}
+              custom={index}
+              variants={itemVariants}
+              whileHover="hover"
+            >
+              <StatCard
+                title={stat.title}
+                value={stat.value}
+                icon={stat.icon}
+                color={stat.color as any}
+                description={stat.description}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
       )}
 
       {/* Loading State */}
-      {isLoading && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-          <div className="flex justify-center items-center space-x-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="text-gray-500">Loading fleet statistics...</span>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+  {isLoading && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center"
+    >
+      <div className="flex flex-col items-center justify-center space-y-4">
+        {/* Spinner */}
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-10 h-10 border-4 border-blue-300 border-t-blue-600 rounded-full"
+        ></motion.div>
 
-      {/* Rest of your existing table components remain the same */}
+        {/* Text */}
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-gray-600 text-sm font-medium"
+        >
+          Loading fleet statistics...
+        </motion.span>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
       {/* Top Callers Section */}
       {statistics && (statisticType === FleetStatisticType.All || statisticType === FleetStatisticType.Caller) && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <motion.div
+          variants={itemVariants}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+        >
           <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Users className="w-5 h-5 mr-2" />
@@ -324,8 +477,16 @@ const FleetStatisticsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {statistics.topCallers.map((caller) => (
-                    <tr key={caller.rank} className="hover:bg-gray-50 transition-colors">
+                  {statistics.topCallers.map((caller, index) => (
+                    <motion.tr
+                      key={caller.rank}
+                      custom={index}
+                      variants={tableRowVariants}
+                      initial="hidden"
+                      animate="show"
+                      whileHover={{ backgroundColor: "rgba(243, 244, 246, 0.5)" }}
+                      className="transition-colors"
+                    >
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
                           caller.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
@@ -348,7 +509,7 @@ const FleetStatisticsPage: React.FC = () => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                         {caller.averageDurationFormatted}
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -360,12 +521,15 @@ const FleetStatisticsPage: React.FC = () => {
               <p className="text-sm text-gray-600">No top caller statistics found for the selected date and filters.</p>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Top Called Fleets Section */}
       {statistics && (statisticType === FleetStatisticType.All || statisticType === FleetStatisticType.Called) && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <motion.div
+          variants={itemVariants}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+        >
           <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-green-100">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Phone className="w-5 h-5 mr-2" />
@@ -390,8 +554,16 @@ const FleetStatisticsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {statistics.topCalledFleets.map((called) => (
-                    <tr key={called.rank} className="hover:bg-gray-50 transition-colors">
+                  {statistics.topCalledFleets.map((called, index) => (
+                    <motion.tr
+                      key={called.rank}
+                      custom={index}
+                      variants={tableRowVariants}
+                      initial="hidden"
+                      animate="show"
+                      whileHover={{ backgroundColor: "rgba(243, 244, 246, 0.5)" }}
+                      className="transition-colors"
+                    >
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
                           called.rank === 1 ? 'bg-yellow-100 text-yellow-800' :
@@ -419,7 +591,7 @@ const FleetStatisticsPage: React.FC = () => {
                           {called.uniqueCallers} callers
                         </span>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -431,22 +603,26 @@ const FleetStatisticsPage: React.FC = () => {
               <p className="text-sm text-gray-600">No top called fleet statistics found for the selected date and filters.</p>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* No Data State */}
       {!isLoading && !statistics && !error && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center"
+        >
           <TrendingUp className="w-16 h-16 mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500 text-lg">No fleet statistics available</p>
           <p className="text-gray-400 text-sm mt-2">Select a date with data to view fleet statistics</p>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
-// IMPROVED StatCard Component
+// StatCard Component
 const StatCard: React.FC<{
   title: string;
   value: string;
@@ -477,7 +653,10 @@ const StatCard: React.FC<{
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
+    <motion.div
+      whileHover={{ y: -5, scale: 1.02 }}
+      className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-300"
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
@@ -491,11 +670,14 @@ const StatCard: React.FC<{
           <p className={`text-2xl font-bold ${textColors[color]} mb-2`}>{value}</p>
           <p className="text-xs text-gray-500">{description}</p>
         </div>
-        <div className={`p-3 rounded-xl ${colorClasses[color]} text-white shadow-lg`}>
+        <motion.div 
+          whileHover={{ rotate: 15, scale: 1.1 }}
+          className={`p-3 rounded-xl ${colorClasses[color]} text-white shadow-lg transition-transform duration-300`}
+        >
           <Icon className="w-6 h-6" />
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

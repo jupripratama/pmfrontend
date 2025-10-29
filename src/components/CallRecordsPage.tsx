@@ -379,7 +379,7 @@ const CallRecordsPage: React.FC = () => {
   const hasPrevious = recordsResponse?.data?.hasPrevious || false;
 
   return (
-    <div className="space-y-6">
+    <div className=" mx-auto flex-1 mt-10 md:mt-12 px-4 space-y-6">
       {/* Debug Info Panel - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
       {/* {hasFullAccess && debugInfo && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
