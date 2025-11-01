@@ -1,5 +1,6 @@
 import React from 'react';
 import Navbar from './Navbar';
+import Footer from './Footer';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
@@ -12,15 +13,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const { user } = useAuth();
 
   if (!user) {
-    return null; // atau loading spinner
+    return null; // atau spinner loading
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1">
+      
+      {/* Main content area — flex-1 supaya dorong footer ke bawah */}
+      <main className="flex-1 px-4 md:px-8 py-6">
         {children}
       </main>
+      
+      <Footer />
     </div>
   );
 };
