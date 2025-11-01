@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// ✅ GANTI INI
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -10,6 +9,7 @@ import UploadPage from './components/UploadPage';
 import ExportPage from './components/ExportPage';
 import FleetStatisticsPage from './components/FleetStatisticsPage';
 import DocsPage from './components/DocsPage';
+import ProfilePage from './components/ProfilePage'; // ✨ NEW: Import ProfilePage
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
@@ -39,6 +39,9 @@ function AppContent() {
         <Route path="/export" element={<ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
         <Route path="/fleet-statistics" element={<FleetStatisticsPage />} />
         <Route path="/docs" element={<DocsPage setActiveTab={setActiveTab} />} />
+        
+        {/* ✨ NEW: Profile page route */}
+        <Route path="/profile" element={<ProfilePage />} />
         
         {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -71,7 +74,6 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    // ✅ PAKAI HashRouter
     <Router>
       <AuthProvider>
         <AppRoutes />
