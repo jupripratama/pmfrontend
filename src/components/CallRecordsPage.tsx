@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext'; // IMPORT useAuth
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Calendar, 
   Download, 
@@ -48,8 +48,8 @@ interface QueryParams {
 }
 
 const CallRecordsPage: React.FC = () => {
-  const { user } = useAuth(); // GET USER INFO
-  const hasFullAccess = user?.roleId === 1 || user?.roleId === 2; // CHECK ROLE
+  const { user } = useAuth();
+  const hasFullAccess = user?.roleId === 1 || user?.roleId === 2;
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -58,7 +58,7 @@ const CallRecordsPage: React.FC = () => {
   const [records, setRecords] = useState<CallRecord[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeSection, setActiveSection] = useState<'records' | 'summary'>('summary'); // DEFAULT KE SUMMARY
+  const [activeSection, setActiveSection] = useState<'records' | 'summary'>('summary');
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('');
@@ -209,7 +209,7 @@ const CallRecordsPage: React.FC = () => {
     setQueryParams(prev => ({
       ...prev,
       search: searchTerm,
-      page: 1 // Reset ke page 1 saat search
+      page: 1
     }));
   };
 
@@ -219,7 +219,7 @@ const CallRecordsPage: React.FC = () => {
     setQueryParams(prev => ({
       ...prev,
       callCloseReason: reason === 'all' ? undefined : reason,
-      page: 1 // Reset ke page 1 saat filter
+      page: 1
     }));
   };
 
@@ -229,7 +229,7 @@ const CallRecordsPage: React.FC = () => {
     setQueryParams(prev => ({
       ...prev,
       hourGroup: hour === 'all' ? undefined : hour,
-      page: 1 // Reset ke page 1 saat filter
+      page: 1
     }));
   };
 
@@ -379,75 +379,7 @@ const CallRecordsPage: React.FC = () => {
   const hasPrevious = recordsResponse?.data?.hasPrevious || false;
 
   return (
-    <div className=" mx-auto flex-1 mt-10 md:mt-12 px-4 space-y-6">
-      {/* Debug Info Panel - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
-      {/* {hasFullAccess && debugInfo && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center">
-              <Info className="w-4 h-4 text-gray-600 mr-2" />
-              <span className="text-sm font-medium text-gray-800">Debug Information</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={refreshData}
-                disabled={isLoading}
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 disabled:opacity-50"
-              >
-                {isLoading ? 'Refreshing...' : 'Refresh Data'}
-              </button>
-              <button
-                onClick={() => setShowDebug(!showDebug)}
-                className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300"
-              >
-                {showDebug ? 'Hide Debug' : 'Show Debug'}
-              </button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-            <div className="bg-white p-2 rounded border">
-              <div className="font-semibold text-gray-600">Selected Date</div>
-              <div className="text-gray-800">{debugInfo.selectedDate}</div>
-            </div>
-            <div className="bg-white p-2 rounded border">
-              <div className="font-semibold text-gray-600">Records Loaded</div>
-              <div className={`font-bold ${debugInfo.recordsCount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {debugInfo.recordsCount} records
-              </div>
-            </div>
-            <div className="bg-white p-2 rounded border">
-              <div className="font-semibold text-gray-600">Total Records</div>
-              <div className="font-bold text-blue-600">{totalRecords.toLocaleString()}</div>
-            </div>
-            <div className="bg-white p-2 rounded border">
-              <div className="font-semibold text-gray-600">Current Page</div>
-              <div className="font-bold text-purple-600">{currentPage} of {totalPages}</div>
-            </div>
-          </div>
-
-          {showDebug && (
-            <div className="mt-3 space-y-2">
-              {debugInfo.sampleRecord && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                  <div className="font-semibold text-yellow-800 mb-2">Sample Record:</div>
-                  <pre className="text-xs text-yellow-700 overflow-auto max-h-32">
-                    {JSON.stringify(debugInfo.sampleRecord, null, 2)}
-                  </pre>
-                </div>
-              )}
-              
-              {debugInfo.error && (
-                <div className="bg-red-50 border border-red-200 rounded p-3">
-                  <div className="font-semibold text-red-800 mb-2">Error:</div>
-                  <div className="text-xs text-red-700">{debugInfo.error}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )} */}
-
+    <div className="mx-auto flex-1 mt-10 md:mt-12 px-4 space-y-6">
       {/* Error Banner */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -519,12 +451,11 @@ const CallRecordsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
+      {/* Navigation Tabs */}
       {hasFullAccess ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex space-x-4">
-
-             <button
+            <button
               onClick={() => setActiveSection('summary')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeSection === 'summary'
@@ -544,12 +475,9 @@ const CallRecordsPage: React.FC = () => {
             >
               📋 Call Records ({totalRecords.toLocaleString()})
             </button>
-            
-           
           </div>
         </div>
       ) : (
-        // Untuk role 3, langsung set active section ke summary
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center">
             <BarChart3 className="w-5 h-5 text-blue-600 mr-2" />
@@ -559,7 +487,6 @@ const CallRecordsPage: React.FC = () => {
       )}
 
       {/* Content Sections */}
-      {/* Untuk role selain 1 & 2, HANYA tampilkan summary section */}
       {hasFullAccess ? (
         <>
           {activeSection === 'records' && (
@@ -585,6 +512,7 @@ const CallRecordsPage: React.FC = () => {
               onToggleFilters={() => setShowFilters(!showFilters)}
               getCloseReasonText={getCloseReasonText}
               getCloseReasonDescription={getCloseReasonDescription}
+              dailySummary={dailySummary} // TAMBAHKAN INI
             />
           )}
 
@@ -597,7 +525,6 @@ const CallRecordsPage: React.FC = () => {
           )}
         </>
       ) : (
-        // Untuk role 3, HANYA tampilkan summary section
         <SummarySection 
           dailySummary={dailySummary}
           isLoading={isLoading}
@@ -608,7 +535,7 @@ const CallRecordsPage: React.FC = () => {
   );
 };
 
-// Sub-component for Records Section
+// Sub-component for Records Section dengan FILTERED STATS
 const CallRecordsSection: React.FC<{
   records: CallRecord[];
   recordsResponse: CallRecordsResponse | null;
@@ -631,6 +558,7 @@ const CallRecordsSection: React.FC<{
   onToggleFilters: () => void;
   getCloseReasonText: (reasonCode: number) => string;
   getCloseReasonDescription: (reasonCode: number) => string;
+  dailySummary: DailySummary | null; // TAMBAHAN
 }> = ({ 
   records, 
   recordsResponse, 
@@ -652,36 +580,172 @@ const CallRecordsSection: React.FC<{
   showFilters,
   onToggleFilters,
   getCloseReasonText,
-  getCloseReasonDescription
+  getCloseReasonDescription,
+  dailySummary // TAMBAHAN
 }) => {
   const totalRecords = recordsResponse?.data?.totalCount || 0;
   const pageSize = recordsResponse?.data?.pageSize || 15;
 
+  // CALCULATE FILTERED STATS
+  const getFilteredStats = () => {
+    let total = 0;
+    let teBusy = 0;
+    let sysBusy = 0;
+    let others = 0;
+
+    // Jika tidak ada filter, gunakan total dari dailySummary
+    if (filterHour === 'all' && filterReason === 'all') {
+      if (dailySummary) {
+        total = dailySummary.totalQty;
+        teBusy = dailySummary.totalTEBusy;
+        sysBusy = dailySummary.totalSysBusy;
+        others = dailySummary.totalOthers;
+      }
+    } else {
+      // Ada filter aktif
+      if (dailySummary && dailySummary.hourlyData) {
+        // Filter berdasarkan Hour
+        if (filterHour !== 'all' && typeof filterHour === 'number') {
+          const hourData = dailySummary.hourlyData.find(h => h.hourGroup === filterHour);
+          if (hourData) {
+            total = hourData.qty;
+            teBusy = hourData.teBusy;
+            sysBusy = hourData.sysBusy;
+            others = hourData.others;
+          }
+        } else {
+          // Jika hour = all, gunakan total
+          total = dailySummary.totalQty;
+          teBusy = dailySummary.totalTEBusy;
+          sysBusy = dailySummary.totalSysBusy;
+          others = dailySummary.totalOthers;
+        }
+
+        // Filter berdasarkan Reason
+        if (filterReason !== 'all' && typeof filterReason === 'number') {
+          if (filterReason === 0) {
+            // Hanya TE Busy
+            total = teBusy;
+            sysBusy = 0;
+            others = 0;
+          } else if (filterReason === 1) {
+            // Hanya System Busy
+            total = sysBusy;
+            teBusy = 0;
+            others = 0;
+          } else {
+            // Reason 2-10: gunakan totalRecords dari API response
+            // karena backend sudah menghitung dengan filter yang benar
+            total = totalRecords;
+            teBusy = 0;
+            sysBusy = 0;
+            others = totalRecords;
+          }
+        }
+      }
+    }
+
+    return { total, teBusy, sysBusy, others };
+  };
+
+  const filteredStats = getFilteredStats();
+
+  // Check apakah ada filter aktif
+  const isFiltered = filterHour !== 'all' || filterReason !== 'all';
+  const filterLabel = [];
+  if (filterHour !== 'all') {
+    filterLabel.push(`Hour ${filterHour.toString().padStart(2, '0')}.00-${filterHour.toString().padStart(2, '0')}.59`);
+  }
+  if (filterReason !== 'all') {
+    filterLabel.push(getCloseReasonText(filterReason));
+  }
+
   return (
     <div className="space-y-6">
-      {/* Quick Stats */}
+      {/* Filter Status Banner */}
+      {isFiltered && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Filter className="w-4 h-4 text-blue-600 mr-2" />
+              <span className="text-sm font-medium text-blue-800">
+                Active Filter: {filterLabel.join(' • ')}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                onFilterHourChange('all');
+                onFilterReasonChange('all');
+              }}
+              className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Stats dengan FILTERED DATA */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-blue-600">{totalRecords.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {filteredStats.total.toLocaleString()}
+          </div>
           <div className="text-sm text-gray-600">Total Records</div>
+          {filterReason !== 'all' && typeof filterReason === 'number' && filterReason >= 2 && (
+            <div className="text-xs text-blue-600 mt-1">
+              {getCloseReasonText(filterReason)}
+            </div>
+          )}
         </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
+        
+        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+          filterReason !== 'all' && filterReason !== 0 ? 'opacity-50' : ''
+        }`}>
           <div className="text-2xl font-bold text-red-600">
-            {records.filter(r => r.callCloseReason === 0).length.toLocaleString()}
+            {filteredStats.teBusy.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">TE Busy</div>
+          {filteredStats.total > 0 && filteredStats.teBusy > 0 && (
+            <div className="text-xs text-gray-500 mt-1">
+              ({((filteredStats.teBusy / filteredStats.total) * 100).toFixed(1)}%)
+            </div>
+          )}
         </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
+        
+        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+          filterReason !== 'all' && filterReason !== 1 ? 'opacity-50' : ''
+        }`}>
           <div className="text-2xl font-bold text-yellow-600">
-            {records.filter(r => r.callCloseReason === 1).length.toLocaleString()}
+            {filteredStats.sysBusy.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">System Busy</div>
+          {filteredStats.total > 0 && filteredStats.sysBusy > 0 && (
+            <div className="text-xs text-gray-500 mt-1">
+              ({((filteredStats.sysBusy / filteredStats.total) * 100).toFixed(1)}%)
+            </div>
+          )}
         </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow">
+        
+        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+          filterReason !== 'all' && filterReason < 2 ? 'opacity-50' : ''
+        }`}>
           <div className="text-2xl font-bold text-green-600">
-            {records.filter(r => r.callCloseReason >= 2).length.toLocaleString()}
+            {filteredStats.others.toLocaleString()}
           </div>
-          <div className="text-sm text-gray-600">Others</div>
+          <div className="text-sm text-gray-600">
+            Others
+            {filterReason !== 'all' && typeof filterReason === 'number' && filterReason >= 2 && (
+              <span className="block text-xs text-green-600 mt-1">
+                ({getCloseReasonText(filterReason)})
+              </span>
+            )}
+          </div>
+          {filteredStats.total > 0 && filteredStats.others > 0 && (
+            <div className="text-xs text-gray-500 mt-1">
+              ({((filteredStats.others / filteredStats.total) * 100).toFixed(1)}%)
+            </div>
+          )}
         </div>
       </div>
 
@@ -717,7 +781,24 @@ const CallRecordsSection: React.FC<{
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Reason Filter */}
+              {/* Hour Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Hour</label>
+                <select
+                  value={filterHour === 'all' ? 'all' : filterHour}
+                  onChange={(e) => onFilterHourChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="all">All Hours</option>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {i.toString().padStart(2, '0')}.00 - {i.toString().padStart(2, '0')}.59
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Reason Filter dengan semua 11 options */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Reason</label>
                 <select
@@ -739,29 +820,12 @@ const CallRecordsSection: React.FC<{
                   <option value={10}>Invalid Call</option>
                 </select>
               </div>
-
-              {/* Hour Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Hour</label>
-                <select
-                  value={filterHour === 'all' ? 'all' : filterHour}
-                  onChange={(e) => onFilterHourChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                >
-                  <option value="all">All Hours</option>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>
-                      {i.toString().padStart(2, '0')}.00 - {i.toString().padStart(2, '0')}.59
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </div>
         )}
       </div>
 
-     {/* Records Table */}
+      {/* Records Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -783,7 +847,7 @@ const CallRecordsSection: React.FC<{
           </div>
         </div>
 
-        {/* Table Container dengan max-width */}
+        {/* Table Container */}
         <div className="overflow-x-auto max-w-full">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -860,7 +924,7 @@ const CallRecordsSection: React.FC<{
           </table>
         </div>
 
-        {/* Pagination yang lebih compact */}
+        {/* Pagination */}
         {totalPages > 1 && (
           <div className="bg-white px-4 py-3 border-t border-gray-200">
             <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
@@ -940,7 +1004,7 @@ const SummarySection: React.FC<{
     );
   }
 
-   return (
+  return (
     <div className="space-y-6">
       {/* Section Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -962,7 +1026,7 @@ const SummarySection: React.FC<{
         </div>
       </div>
 
- {/* Daily Summary Cards */}
+      {/* Daily Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Total Calls"
@@ -1026,7 +1090,6 @@ const SummarySection: React.FC<{
   );
 };
 
-  
 // Reusable StatCard Component
 const StatCard: React.FC<{
   title: string;

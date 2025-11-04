@@ -139,7 +139,7 @@ const FleetStatisticsPage: React.FC = () => {
         variants={itemVariants}
         className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8"
       >
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between ">
           <div>
             <motion.h1 
               className="text-2xl font-bold text-gray-900"
@@ -175,6 +175,7 @@ const FleetStatisticsPage: React.FC = () => {
             </motion.button>
           </motion.div>
         </div>
+     
       </motion.div>
 
       {/* Filters Section */}

@@ -148,6 +148,24 @@ export const authApi = {
     return response.data.data;
   },
 
+  updateProfile: async (data: { fullName?: string; email?: string }): Promise<User> => {
+    try {
+      console.log('🔄 Updating profile:', data);
+      const response = await api.put('/api/auth/profile', data);
+      
+      // Update local storage
+      const updatedUser = response.data.data;
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      console.log('✅ Profile updated successfully');
+      return updatedUser;
+    } catch (error: any) {
+      console.error('❌ Error updating profile:', error);
+      const errorMessage = error.response?.data?.message || error.message;
+      throw new Error(errorMessage || 'Failed to update profile');
+    }
+  },
+
   getPermissions: (): string[] => {
     const permissionsStr = localStorage.getItem('permissions');
     return permissionsStr ? JSON.parse(permissionsStr) : [];
