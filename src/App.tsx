@@ -1,3 +1,4 @@
+// App.tsx - UPDATED VERSION
 import React, { useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -9,7 +10,8 @@ import UploadPage from './components/UploadPage';
 import ExportPage from './components/ExportPage';
 import FleetStatisticsPage from './components/FleetStatisticsPage';
 import DocsPage from './components/DocsPage';
-import ProfilePage from './components/ProfilePage'; // ✨ NEW: Import ProfilePage
+import ProfilePage from './components/ProfilePage';
+import SettingsPage from './components/SettingsPage'; // ✨ NEW
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
@@ -39,9 +41,10 @@ function AppContent() {
         <Route path="/export" element={<ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
         <Route path="/fleet-statistics" element={<FleetStatisticsPage />} />
         <Route path="/docs" element={<DocsPage setActiveTab={setActiveTab} />} />
-        
-        {/* ✨ NEW: Profile page route */}
         <Route path="/profile" element={<ProfilePage />} />
+        
+        {/* ✨ NEW: Settings page route - Only for Super Admin */}
+        <Route path="/settings" element={<SettingsPage />} />
         
         {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
 import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
+import { AssignPermissionsRequest, CreatePermissionRequest, CreateRoleRequest, Permission, Role, RolePermission, RolePermissionMatrix } from '../types/permission';
 
 // Determine base URL based on environment
 const getBaseURL = () => {
@@ -148,27 +149,41 @@ export const authApi = {
     return response.data.data;
   },
 
-  updateProfile: async (data: { fullName?: string; email?: string }): Promise<User> => {
-    try {
-      console.log('🔄 Updating profile:', data);
-      const response = await api.put('/api/auth/profile', data);
-      
-      // Update local storage
-      const updatedUser = response.data.data;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      console.log('✅ Profile updated successfully');
-      return updatedUser;
-    } catch (error: any) {
-      console.error('❌ Error updating profile:', error);
-      const errorMessage = error.response?.data?.message || error.message;
-      throw new Error(errorMessage || 'Failed to update profile');
-    }
+  updateProfile: async (profileData: {
+    fullName?: string;
+    email?: string;
+    password?: string;
+  }): Promise<User> => {
+    const response = await api.put('/api/auth/profile', profileData);
+    const updatedUser = response.data.data;
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    return updatedUser;
+  },
+
+  uploadProfilePhoto: async (file: File): Promise<{ photoUrl: string }> => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const response = await api.post('/api/auth/profile/photo', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data.data;
   },
 
   getPermissions: (): string[] => {
     const permissionsStr = localStorage.getItem('permissions');
     return permissionsStr ? JSON.parse(permissionsStr) : [];
+  },
+
+  register: async (userData: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+  }): Promise<void> => {
+    const response = await api.post('/api/auth/register', userData);
+    return response.data;
   },
 
   logout: () => {
@@ -443,5 +458,109 @@ export const callRecordApi = {
       const errorMessage = error.response?.data?.message || error.message;
       throw new Error(`Failed to load fleet statistics: ${errorMessage}`);
     }
+  },
+};
+
+// Permission APIs
+export const permissionApi = {
+  getAll: async (): Promise<Permission[]> => {
+    const response = await api.get('/api/permissions');
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<Permission> => {
+    const response = await api.get(`/api/permissions/${id}`);
+    return response.data.data;
+  },
+
+  create: async (data: CreatePermissionRequest): Promise<Permission> => {
+    const response = await api.post('/api/permissions', data);
+    return response.data.data;
+  },
+
+  update: async (id: number, data: CreatePermissionRequest): Promise<Permission> => {
+    const response = await api.put(`/api/permissions/${id}`, data);
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/api/permissions/${id}`);
+  },
+};
+
+
+// Role APIs
+export const roleApi = {
+  getAll: async (): Promise<Role[]> => {
+    const response = await api.get('/api/roles');
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<Role> => {
+    const response = await api.get(`/api/roles/${id}`);
+    return response.data.data;
+  },
+
+  create: async (data: CreateRoleRequest): Promise<Role> => {
+    const response = await api.post('/api/roles', data);
+    return response.data.data;
+  },
+
+  update: async (id: number, data: CreateRoleRequest): Promise<Role> => {
+    const response = await api.put(`/api/roles/${id}`, data);
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/api/roles/${id}`);
+  },
+};
+
+// Role-Permission APIs
+export const rolePermissionApi = {
+  getMatrix: async (): Promise<RolePermissionMatrix[]> => {
+    const response = await api.get('/api/role-permissions/matrix');
+    return response.data.data;
+  },
+
+  getByRole: async (roleId: number): Promise<RolePermission[]> => {
+    const response = await api.get(`/api/role-permissions/role/${roleId}`);
+    return response.data.data;
+  },
+
+  assignPermissions: async (data: AssignPermissionsRequest): Promise<void> => {
+    await api.post('/api/role-permissions/assign', data);
+  },
+
+  removePermission: async (roleId: number, permissionId: number): Promise<void> => {
+    await api.delete(`/api/role-permissions/${roleId}/${permissionId}`);
+  },
+};
+
+// User Management APIs (for Super Admin)
+export const userApi = {
+  getAll: async (): Promise<User[]> => {
+    const response = await api.get('/api/users');
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<User> => {
+    const response = await api.get(`/api/users/${id}`);
+    return response.data.data;
+  },
+
+  updateRole: async (userId: number, roleId: number): Promise<User> => {
+    const response = await api.patch(`/api/users/${userId}/role`, { roleId });
+    return response.data.data;
+  },
+
+  activateUser: async (userId: number): Promise<User> => {
+    const response = await api.patch(`/api/users/${userId}/activate`);
+    return response.data.data;
+  },
+
+  deactivateUser: async (userId: number): Promise<User> => {
+    const response = await api.patch(`/api/users/${userId}/deactivate`);
+    return response.data.data;
   },
 };

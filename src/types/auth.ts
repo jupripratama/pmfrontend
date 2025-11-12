@@ -13,6 +13,7 @@ export interface User {
   isActive?: boolean;
   lastLogin?: string;
   createdAt?: string;
+  photoUrl?: string;
   permissions?: string[];
 }
 
