@@ -1,9 +1,10 @@
-// App.tsx - UPDATED VERSION
+// App.tsx - UPDATE
 import React, { useState } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import Register from './components/Register'; // ✅ NEW
 import Dashboard from './components/Dashboard';
 import CallRecordsPage from './components/CallRecordsPage';
 import UploadPage from './components/UploadPage';
@@ -11,7 +12,7 @@ import ExportPage from './components/ExportPage';
 import FleetStatisticsPage from './components/FleetStatisticsPage';
 import DocsPage from './components/DocsPage';
 import ProfilePage from './components/ProfilePage';
-import SettingsPage from './components/SettingsPage'; // ✨ NEW
+import SettingsPage from './components/SettingsPage';
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
@@ -29,8 +30,6 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { user } = useAuth();
-  const location = useLocation();
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
@@ -42,14 +41,8 @@ function AppContent() {
         <Route path="/fleet-statistics" element={<FleetStatisticsPage />} />
         <Route path="/docs" element={<DocsPage setActiveTab={setActiveTab} />} />
         <Route path="/profile" element={<ProfilePage />} />
-        
-        {/* ✨ NEW: Settings page route - Only for Super Admin */}
         <Route path="/settings" element={<SettingsPage />} />
-        
-        {/* Redirect root to dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        
-        {/* Catch all route */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>
@@ -70,6 +63,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" replace />} /> {/* ✅ NEW */}
       <Route path="/*" element={user ? <AppContent /> : <Navigate to="/" replace />} />
     </Routes>
   );

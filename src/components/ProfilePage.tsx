@@ -1,92 +1,118 @@
-// components/ProfilePage.tsx
-import React, { useState, useRef } from 'react';
+// components/ProfilePage.tsx - FINAL + LENGKAP + ADA GANTI PASSWORD!
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { authApi } from '../services/api';
+import { motion } from 'framer-motion';
 import {
-  User,
-  Mail,
-  Shield,
-  Calendar,
-  Camera,
-  Save,
-  X,
-  Eye,
-  EyeOff,
-  Lock,
+  User, Mail, Shield, Calendar, Camera, Save, X, Eye, EyeOff, Lock,
+  Trash2, CheckCircle, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user: contextUser, logout } = useAuth();
+  const [currentUser, setCurrentUser] = useState(contextUser);
+  const [photoError, setPhotoError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState({ old: false, new: false, confirm: false });
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [message, setMessage] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-    password: '',
-    confirmPassword: '',
+    fullName: '', email: '', oldPassword: '', newPassword: '', confirmPassword: ''
   });
 
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (!user?.fullName) return 'U';
-    const names = user.fullName.split(' ');
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+  // Auto-hide message
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(null), 5000);
+      return () => clearTimeout(timer);
     }
-    return names[0][0].toUpperCase();
+  }, [message]);
+
+  // Load & sync user
+  useEffect(() => { if (contextUser) refreshUserData(); }, []);
+  useEffect(() => { if (contextUser) setCurrentUser(contextUser); }, [contextUser]);
+  useEffect(() => {
+    if (!isEditing && currentUser) {
+      setFormData({
+        fullName: currentUser.fullName || '',
+        email: currentUser.email || '',
+        oldPassword: '', newPassword: '', confirmPassword: ''
+      });
+      setIsChangingPassword(false);
+      setShowPassword({ old: false, new: false, confirm: false });
+    }
+  }, [isEditing, currentUser]);
+
+  // Multi-tab sync
+  useEffect(() => {
+    const handler = () => {
+      const u = localStorage.getItem('user');
+      if (u) { try { setCurrentUser(JSON.parse(u)); setPhotoError(false); } catch {} }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  const refreshUserData = useCallback(async () => {
+    if (!contextUser?.userId) return;
+    setRefreshing(true);
+    try {
+      const fresh = await authApi.getProfile();
+      setCurrentUser(fresh);
+      localStorage.setItem('user', JSON.stringify(fresh));
+      setPhotoError(false);
+    } catch {
+      setMessage({ type: 'error', text: 'Gagal memuat profil' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [contextUser]);
+
+  const getInitials = () => {
+    if (!currentUser?.fullName) return 'U';
+    const names = currentUser.fullName.trim().split(' ');
+    return names.length >= 2
+      ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
+      : names[0][0].toUpperCase();
   };
 
-  const handlePhotoClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleAvatarClick = () => fileInputRef.current?.click();
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentUser?.userId) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setMessage({ type: 'error', text: 'File harus berupa gambar' });
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Ukuran file maksimal 5MB' });
-      return;
-    }
+    if (!file.type.startsWith('image/')) return setMessage({ type: 'error', text: 'File harus gambar' });
+    if (file.size > 5 * 1024 * 1024) return setMessage({ type: 'error', text: 'Maksimal 5MB' });
 
     setUploadingPhoto(true);
-    setMessage(null);
-
     try {
-      const response = await authApi.uploadProfilePhoto(file);
-      
-      // Update user data in localStorage
-      const updatedUser = { ...user, photoUrl: response.photoUrl };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      setMessage({ type: 'success', text: 'Foto profil berhasil diupdate' });
-      
-      // Reload page to reflect changes
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal mengupload foto',
-      });
+      await authApi.uploadProfilePhoto(currentUser.userId, file);
+      await refreshUserData();
+      setMessage({ type: 'success', text: 'Foto profil diperbarui!' });
+    } catch {
+      setMessage({ type: 'error', text: 'Gagal upload foto' });
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!currentUser?.userId || !currentUser.photoUrl || !confirm('Hapus foto?')) return;
+    setUploadingPhoto(true);
+    try {
+      await authApi.deleteProfilePhoto(currentUser.userId);
+      await refreshUserData();
+      setMessage({ type: 'success', text: 'Foto dihapus' });
+    } catch {
+      setMessage({ type: 'error', text: 'Gagal hapus foto' });
     } finally {
       setUploadingPhoto(false);
     }
@@ -94,384 +120,346 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser?.userId) return;
+
     setLoading(true);
     setMessage(null);
 
-    // Validate if changing password
-    if (isChangingPassword) {
-      if (!formData.password) {
-        setMessage({ type: 'error', text: 'Password tidak boleh kosong' });
-        setLoading(false);
-        return;
-      }
-
-      if (formData.password.length < 6) {
-        setMessage({ type: 'error', text: 'Password minimal 6 karakter' });
-        setLoading(false);
-        return;
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        setMessage({
-          type: 'error',
-          text: 'Password dan konfirmasi password tidak cocok',
-        });
-        setLoading(false);
-        return;
-      }
-    }
-
     try {
-      const updateData: any = {
-        fullName: formData.fullName,
-        email: formData.email,
-      };
+      let hasChanges = false;
 
-      if (isChangingPassword && formData.password) {
-        updateData.password = formData.password;
+      // Update nama & email
+      if (formData.fullName !== currentUser.fullName || formData.email !== currentUser.email) {
+        await authApi.updateProfile(currentUser.userId, {
+          fullName: formData.fullName,
+          email: formData.email,
+        });
+        hasChanges = true;
       }
 
-      await authApi.updateProfile(updateData);
+      // Ganti password
+      if (isChangingPassword && formData.newPassword) {
+        if (formData.newPassword.length < 8) throw new Error('Password minimal 8 karakter');
+        if (formData.newPassword !== formData.confirmPassword) throw new Error('Password tidak cocok');
+        await authApi.changePassword(formData.oldPassword, formData.newPassword);
+        hasChanges = true;
+      }
 
-      setMessage({ type: 'success', text: 'Profile berhasil diupdate' });
+      if (!hasChanges) {
+        setMessage({ type: 'error', text: 'Tidak ada perubahan' });
+        setLoading(false);
+        return;
+      }
+
+      await refreshUserData();
+      setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
       setIsEditing(false);
-      setIsChangingPassword(false);
-      setFormData({
-        ...formData,
-        password: '',
-        confirmPassword: '',
-      });
-
-      // Reload page to reflect changes
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal mengupdate profile',
-      });
+      setMessage({ type: 'error', text: error.message || 'Gagal menyimpan perubahan' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    setIsChangingPassword(false);
-    setFormData({
-      fullName: user?.fullName || '',
-      email: user?.email || '',
-      password: '',
-      confirmPassword: '',
-    });
-    setMessage(null);
-  };
+  const formatDate = (date?: string | null) =>
+    date ? new Date(date).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const hasPhoto = currentUser.photoUrl && !photoError;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Profile Saya</h1>
-          <p className="text-gray-600 mt-2">
-            Kelola informasi profile dan keamanan akun Anda
-          </p>
-        </div>
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Profil Saya
+          </h1>
+          <p className="text-gray-600 mt-2">Kelola informasi dan keamanan akun Anda</p>
+        </motion.div>
 
-        {/* Message Alert */}
+        {/* Message */}
         {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-8 p-5 rounded-2xl flex items-center gap-3 shadow-lg ${
+              message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
             }`}
           >
-            {message.text}
-          </div>
+            {message.type === 'success' ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+            <span className="font-medium">{message.text}</span>
+            <button onClick={() => setMessage(null)} className="ml-auto"><X className="w-5 h-5" /></button>
+          </motion.div>
         )}
 
-        {/* Profile Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Cover Image */}
-          <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+        {/* Card Utama */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden"
+        >
+          {/* Gradient Header */}
+          <div className="h-40 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 relative">
+            <div className="absolute inset-0 bg-black/20" />
+          </div>
 
-          {/* Profile Content */}
-          <div className="px-8 pb-8">
-            {/* Avatar Section */}
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-16 mb-6">
+          <div className="relative px-8 pb-10">
+            {/* Avatar + Tombol (POJOK KANAN BAWAH, HANYA HOVER) */}
+            <div className="absolute -top-20 left-8 group">
               <div className="relative">
-                {user?.photoUrl ? (
-                  <img
-                    src={user.photoUrl}
-                    alt={user.fullName}
-                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                {hasPhoto ? (
+                  <motion.img
+                    key={currentUser.photoUrl}
+                    src={currentUser.photoUrl}
+                    alt={currentUser.fullName}
+                    onError={() => setPhotoError(true)}
+                    onClick={handleAvatarClick}
+                    className="w-40 h-40 rounded-full object-cover border-8 border-white shadow-2xl cursor-pointer transition-transform group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-lg">
-                    {getUserInitials()}
-                  </div>
+                  <motion.div
+                    onClick={handleAvatarClick}
+                    className="w-40 h-40 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-5xl font-bold border-8 border-white shadow-2xl cursor-pointer transition-transform group-hover:scale-105"
+                  >
+                    {getInitials()}
+                  </motion.div>
                 )}
 
-                {/* Upload Photo Button */}
-                <button
-                  onClick={handlePhotoClick}
-                  disabled={uploadingPhoto}
-                  className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition shadow-lg disabled:bg-blue-400"
-                >
-                  {uploadingPhoto ? (
-                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                  ) : (
-                    <Camera className="w-5 h-5" />
+                {/* Tombol Upload & Hapus */}
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-2">
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.stopPropagation(); handleAvatarClick(); }}
+                    disabled={uploadingPhoto}
+                    className="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 disabled:opacity-50"
+                    title="Ganti Foto"
+                  >
+                    {uploadingPhoto ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                  </motion.button>
+
+                  {currentUser.photoUrl && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => { e.stopPropagation(); handleDeletePhoto(); }}
+                      disabled={uploadingPhoto}
+                      className="bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 disabled:opacity-50"
+                      title="Hapus Foto"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </motion.button>
                   )}
-                </button>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className="hidden"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="mt-4 sm:mt-0 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-                >
-                  Edit Profile
-                </button>
-              ) : (
-                <div className="flex space-x-3 mt-4 sm:mt-0">
-                  <button
-                    onClick={handleCancel}
-                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition font-medium"
-                  >
-                    <X className="w-5 h-5 inline mr-2" />
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium disabled:bg-blue-400"
-                  >
-                    {loading ? (
-                      <span className="flex items-center">
-                        <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2" />
-                        Saving...
-                      </span>
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5 inline mr-2" />
-                        Simpan
-                      </>
-                    )}
-                  </button>
                 </div>
-              )}
+
+                <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Profile Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nama Lengkap
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, fullName: e.target.value })
-                      }
-                      disabled={!isEditing}
-                      className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
-                        isEditing
-                          ? 'border-gray-300 bg-white'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      disabled={!isEditing}
-                      className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
-                        isEditing
-                          ? 'border-gray-300 bg-white'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={user?.username || ''}
-                      disabled
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Username tidak dapat diubah
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role
-                  </label>
-                  <div className="relative">
-                    <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={user?.roleName || ''}
-                      disabled
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                    />
-                  </div>
-                </div>
+            {/* User Info */}
+            <div className="pt-24 text-center md:text-left md:ml-52">
+              <h2 className="text-3xl font-bold text-gray-900">{currentUser.fullName}</h2>
+              <p className="text-gray-600 mt-1">{currentUser.email}</p>
+              <div className="flex items-center gap-3 mt-3 justify-center md:justify-start">
+                <Shield className="w-5 h-5 text-purple-600" />
+                <span className="px-4 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+                  {currentUser.roleName}
+                </span>
               </div>
+            </div>
 
-              {/* Change Password Section */}
-              {isEditing && (
-                <div className="border-t border-gray-200 pt-6">
+            {/* Tombol Aksi */}
+            <div className="flex justify-center md:justify-end gap-3 mt-8">
+              <button
+                onClick={refreshUserData}
+                disabled={refreshing}
+                className="px-5 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition flex items-center gap-2 font-medium"
+              >
+                {refreshing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                Refresh
+              </button>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition font-semibold"
+              >
+                {isEditing ? 'Batal Edit' : 'Edit Profil'}
+              </button>
+            </div>
+
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+          </div>
+
+          {/* FORM EDIT */}
+          {isEditing && (
+            <div className="px-8 pb-10 border-t border-gray-100 pt-8">
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Nama Lengkap */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={formData.fullName}
+                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                        className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* UBAH PASSWORD — INI YANG KAMU CARI! */}
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <Lock className="w-5 h-5" />
                       Ubah Password
                     </h3>
                     <button
                       type="button"
                       onClick={() => setIsChangingPassword(!isChangingPassword)}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
                     >
-                      {isChangingPassword ? 'Batal ubah password' : 'Ubah password'}
+                      {isChangingPassword ? 'Batal' : 'Ganti password'}
                     </button>
                   </div>
 
                   {isChangingPassword && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-5 mt-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Password Baru
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Password Lama</label>
                         <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                           <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={formData.password}
-                            onChange={(e) =>
-                              setFormData({ ...formData, password: e.target.value })
-                            }
-                            className="w-full pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            placeholder="Min. 6 karakter"
+                            type={showPassword.old ? 'text' : 'password'}
+                            value={formData.oldPassword}
+                            onChange={e => setFormData({ ...formData, oldPassword: e.target.value })}
+                            className="w-full pl-12 pr-14 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                            placeholder="Masukkan password lama"
+                            required
                           />
                           <button
                             type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            onClick={() => setShowPassword({ ...showPassword, old: !showPassword.old })}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                           >
-                            {showPassword ? (
-                              <EyeOff className="w-5 h-5" />
-                            ) : (
-                              <Eye className="w-5 h-5" />
-                            )}
+                            {showPassword.old ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                           </button>
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Konfirmasi Password
-                        </label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={formData.confirmPassword}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                confirmPassword: e.target.value,
-                              })
-                            }
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            placeholder="Ketik ulang password"
-                          />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Password Baru</label>
+                          <div className="relative">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input
+                              type={showPassword.new ? 'text' : 'password'}
+                              value={formData.newPassword}
+                              onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                              className="w-full pl-12 pr-14 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                              placeholder="Min. 8 karakter"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword({ ...showPassword, new: !showPassword.new })}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showPassword.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password</label>
+                          <div className="relative">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input
+                              type={showPassword.confirm ? 'text' : 'password'}
+                              value={formData.confirmPassword}
+                              onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                              className="w-full pl-12 pr-14 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                              placeholder="Ketik ulang"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword({ ...showPassword, confirm: !showPassword.confirm })}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showPassword.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Account Info */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Informasi Akun
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-gray-500">Terdaftar sejak</p>
-                      <p className="font-medium text-gray-900">
-                        {user?.createdAt
-                          ? new Date(user.createdAt).toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                            })
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
+                {/* Tombol Simpan */}
+                <div className="flex justify-end pt-6">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-10 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-xl transition font-bold text-lg flex items-center gap-3 disabled:opacity-70"
+                  >
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                    Simpan Semua Perubahan
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-gray-500">Login terakhir</p>
-                      <p className="font-medium text-gray-900">
-                        {user?.lastLogin
-                          ? new Date(user.lastLogin).toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
+          {/* Informasi Akun */}
+          <div className="px-8 pb-10 border-t border-gray-100 pt-8">
+            <h3 className="text-lg font-bold text-gray-900 mb-6">Informasi Akun</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+              <div className="flex items-center gap-4">
+                <Calendar className="w-6 h-6 text-gray-400" />
+                <div>
+                  <p className="text-gray-500">Terdaftar sejak</p>
+                  <p className="font-semibold text-gray-900">{formatDate(currentUser.createdAt)}</p>
                 </div>
               </div>
-            </form>
+              <div className="flex items-center gap-4">
+                <Calendar className="w-6 h-6 text-gray-400" />
+                <div>
+                  <p className="text-gray-500">Login terakhir</p>
+                  <p className="font-semibold text-gray-900">
+                    {currentUser.lastLogin ? formatDate(currentUser.lastLogin) : 'Belum pernah'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

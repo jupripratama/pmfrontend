@@ -1,4 +1,4 @@
-// components/settings/UsersManagementTab.tsx
+// components/settings/UsersManagementTab.tsx - UPDATED FULL VERSION
 import React, { useState, useEffect } from 'react';
 import { userApi, roleApi } from '../../services/api';
 import { User } from '../../types/auth';
@@ -12,6 +12,9 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
+  Eye,
+  X,
+  Edit2,
 } from 'lucide-react';
 
 export default function UsersManagementTab() {
@@ -19,9 +22,9 @@ export default function UsersManagementTab() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>(
-    'all'
-  );
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -102,6 +105,27 @@ export default function UsersManagementTab() {
     }
   };
 
+  const handleViewDetail = async (userId: number) => {
+    try {
+      const userDetail = await userApi.getById(userId);
+      setSelectedUser(userDetail);
+      setIsDetailModalOpen(true);
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Gagal memuat detail user',
+      });
+    }
+  };
+
+  const getUserInitials = (fullName: string) => {
+    const names = fullName.split(' ');
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    }
+    return names[0][0].toUpperCase();
+  };
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -152,28 +176,31 @@ export default function UsersManagementTab() {
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <p className="text-sm text-orange-600 font-medium">Inactive Users</p>
-          <p className="text-2xl font-bold text-orange-900 mt-1">
-            {stats.inactive}
-          </p>
+          <p className="text-2xl font-bold text-orange-900 mt-1">{stats.inactive}</p>
         </div>
       </div>
 
       {/* Message */}
       {message && (
         <div
-          className={`mb-6 p-4 rounded-lg ${
+          className={`mb-6 p-4 rounded-lg flex items-start ${
             message.type === 'success'
               ? 'bg-green-50 text-green-700 border border-green-200'
               : 'bg-red-50 text-red-700 border border-red-200'
           }`}
         >
-          {message.text}
+          <p className="flex-1">{message.text}</p>
+          <button
+            onClick={() => setMessage(null)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        {/* Search */}
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -185,12 +212,9 @@ export default function UsersManagementTab() {
           />
         </div>
 
-        {/* Status Filter */}
         <select
           value={filterStatus}
-          onChange={(e) =>
-            setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')
-          }
+          onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="all">All Status</option>
@@ -232,26 +256,33 @@ export default function UsersManagementTab() {
               filteredUsers.map((user) => (
                 <tr key={user.userId} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.fullName}
-                      </p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Mail className="w-3 h-3 text-gray-400" />
-                        <p className="text-xs text-gray-500">{user.email}</p>
+                    <div className="flex items-center space-x-3">
+                      {user.photoUrl ? (
+                        <img
+                          src={user.photoUrl}
+                          alt={user.fullName}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm border-2 border-gray-200">
+                          {getUserInitials(user.fullName)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Mail className="w-3 h-3 text-gray-400" />
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        @{user.username}
-                      </p>
                     </div>
                   </td>
 
                   <td className="px-4 py-3">
                     <select
                       value={user.roleId}
-                      onChange={(e) =>
-                        handleChangeRole(user.userId, parseInt(e.target.value))
-                      }
+                      onChange={(e) => handleChangeRole(user.userId, parseInt(e.target.value))}
                       className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       {roles.map((role) => (
@@ -285,6 +316,8 @@ export default function UsersManagementTab() {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
                             })
                           : 'Never'}
                       </span>
@@ -293,6 +326,13 @@ export default function UsersManagementTab() {
 
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center space-x-2">
+                      <button
+                        onClick={() => handleViewDetail(user.userId)}
+                        className="text-blue-600 hover:text-blue-800 p-1"
+                        title="View Details"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
                       {user.isActive ? (
                         <button
                           onClick={() => handleDeactivate(user.userId)}
@@ -318,6 +358,149 @@ export default function UsersManagementTab() {
           </tbody>
         </table>
       </div>
+
+      {/* User Detail Modal */}
+      {isDetailModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">User Details</h3>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {/* Profile Section */}
+              <div className="flex items-center space-x-4 mb-6 pb-6 border-b border-gray-200">
+                {selectedUser.photoUrl ? (
+                  <img
+                    src={selectedUser.photoUrl}
+                    alt={selectedUser.fullName}
+                    className="w-20 h-20 rounded-full object-cover border-4 border-blue-500"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-blue-500">
+                    {getUserInitials(selectedUser.fullName)}
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-2xl font-bold text-gray-900">{selectedUser.fullName}</h4>
+                  <p className="text-gray-600">@{selectedUser.username}</p>
+                  <div className="flex items-center space-x-2 mt-2">
+                    {selectedUser.isActive ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Email
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <p className="text-gray-900">{selectedUser.email}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Role
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-gray-400" />
+                    <p className="text-gray-900">{selectedUser.roleName}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Created At
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <p className="text-gray-900">
+                      {selectedUser.createdAt
+                        ? new Date(selectedUser.createdAt).toLocaleString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Last Login
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <p className="text-gray-900">
+                      {selectedUser.lastLogin
+                        ? new Date(selectedUser.lastLogin).toLocaleString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Never logged in'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Permissions */}
+              {selectedUser.permissions && selectedUser.permissions.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h5 className="text-sm font-medium text-gray-900 mb-3">Permissions</h5>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedUser.permissions.map((permission, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full"
+                      >
+                        {permission}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

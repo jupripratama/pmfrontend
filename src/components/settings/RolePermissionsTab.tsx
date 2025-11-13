@@ -1,8 +1,8 @@
-// components/settings/RolePermissionsTab.tsx
+// components/settings/RolePermissionsTab.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { rolePermissionApi, roleApi, permissionApi } from '../../services/api';
 import { RolePermissionMatrix, Role, Permission } from '../../types/permission';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, X } from 'lucide-react';
 
 export default function RolePermissionsTab() {
   const [matrix, setMatrix] = useState<RolePermissionMatrix[]>([]);
@@ -15,7 +15,6 @@ export default function RolePermissionsTab() {
     text: string;
   } | null>(null);
 
-  // Track changes
   const [changes, setChanges] = useState<{
     [roleId: number]: { [permissionId: number]: boolean };
   }>({});
@@ -46,18 +45,14 @@ export default function RolePermissionsTab() {
   };
 
   const hasPermission = (roleId: number, permissionId: number): boolean => {
-    // Check if there are pending changes
     if (changes[roleId]?.[permissionId] !== undefined) {
       return changes[roleId][permissionId];
     }
 
-    // Check from matrix data
     const roleMatrix = matrix.find((m) => m.roleId === roleId);
     if (!roleMatrix) return false;
 
-    const permission = roleMatrix.permissions.find(
-      (p) => p.permissionId === permissionId
-    );
+    const permission = roleMatrix.permissions.find((p) => p.permissionId === permissionId);
     return permission?.hasPermission || false;
   };
 
@@ -87,17 +82,29 @@ export default function RolePermissionsTab() {
     setMessage(null);
 
     try {
-      // Save changes for each role
       for (const [roleIdStr, permissionChanges] of Object.entries(changes)) {
         const roleId = parseInt(roleIdStr);
-        const permissionIds = Object.entries(permissionChanges)
-          .filter(([_, hasPermission]) => hasPermission)
-          .map(([permissionId]) => parseInt(permissionId));
+        
+        // Get current permissions for this role from matrix
+        const roleMatrix = matrix.find((m) => m.roleId === roleId);
+        const currentPermissions = roleMatrix?.permissions
+          .filter((p) => p.hasPermission)
+          .map((p) => p.permissionId) || [];
 
-        await rolePermissionApi.assignPermissions({
-          roleId,
-          permissionIds,
+        // Merge with changes
+        const updatedPermissionIds = new Set(currentPermissions);
+        
+        Object.entries(permissionChanges).forEach(([permissionIdStr, hasPermission]) => {
+          const permissionId = parseInt(permissionIdStr);
+          if (hasPermission) {
+            updatedPermissionIds.add(permissionId);
+          } else {
+            updatedPermissionIds.delete(permissionId);
+          }
         });
+
+        // Call API dengan permissionIds yang sudah diupdate
+        await rolePermissionApi.assignPermissions(roleId, Array.from(updatedPermissionIds));
       }
 
       setMessage({
@@ -119,10 +126,7 @@ export default function RolePermissionsTab() {
   };
 
   const handleReset = () => {
-    if (
-      hasChanges() &&
-      !confirm('Apakah Anda yakin ingin membatalkan semua perubahan?')
-    ) {
+    if (hasChanges() && !confirm('Apakah Anda yakin ingin membatalkan semua perubahan?')) {
       return;
     }
     setChanges({});
@@ -139,12 +143,9 @@ export default function RolePermissionsTab() {
 
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">
-            Role Permission Matrix
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900">Role Permission Matrix</h2>
           <p className="text-sm text-gray-600 mt-1">
             Assign permissions to roles using checkboxes
           </p>
@@ -181,31 +182,30 @@ export default function RolePermissionsTab() {
         )}
       </div>
 
-      {/* Message */}
       {message && (
         <div
-          className={`mb-6 p-4 rounded-lg ${
+          className={`mb-6 p-4 rounded-lg flex items-start ${
             message.type === 'success'
               ? 'bg-green-50 text-green-700 border border-green-200'
               : 'bg-red-50 text-red-700 border border-red-200'
           }`}
         >
-          {message.text}
+          <p className="flex-1">{message.text}</p>
+          <button onClick={() => setMessage(null)} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
         </div>
       )}
 
-      {/* Changes Indicator */}
       {hasChanges() && (
         <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm text-yellow-800">
-            <strong>Unsaved Changes:</strong> You have{' '}
-            {Object.keys(changes).length} role(s) with pending changes. Click{' '}
-            <strong>Save Changes</strong> to apply.
+            <strong>Unsaved Changes:</strong> You have {Object.keys(changes).length} role(s) with
+            pending changes. Click <strong>Save Changes</strong> to apply.
           </p>
         </div>
       )}
 
-      {/* Permission Matrix */}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
         <table className="w-full">
           <thead>
@@ -233,10 +233,7 @@ export default function RolePermissionsTab() {
           <tbody className="divide-y divide-gray-200">
             {permissions.length === 0 ? (
               <tr>
-                <td
-                  colSpan={roles.length + 1}
-                  className="px-4 py-8 text-center text-gray-500"
-                >
+                <td colSpan={roles.length + 1} className="px-4 py-8 text-center text-gray-500">
                   No permissions available
                 </td>
               </tr>
@@ -249,20 +246,14 @@ export default function RolePermissionsTab() {
                         {permission.permissionName}
                       </p>
                       {permission.description && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {permission.description}
-                        </p>
+                        <p className="text-xs text-gray-500 mt-1">{permission.description}</p>
                       )}
                     </div>
                   </td>
                   {roles.map((role) => {
-                    const checked = hasPermission(
-                      role.roleId,
-                      permission.permissionId
-                    );
+                    const checked = hasPermission(role.roleId, permission.permissionId);
                     const isChanged =
-                      changes[role.roleId]?.[permission.permissionId] !==
-                      undefined;
+                      changes[role.roleId]?.[permission.permissionId] !== undefined;
 
                     return (
                       <td
@@ -273,12 +264,7 @@ export default function RolePermissionsTab() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() =>
-                              togglePermission(
-                                role.roleId,
-                                permission.permissionId
-                              )
-                            }
+                            onChange={() => togglePermission(role.roleId, permission.permissionId)}
                             className={`w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer ${
                               isChanged ? 'ring-2 ring-yellow-500' : ''
                             }`}
@@ -294,24 +280,13 @@ export default function RolePermissionsTab() {
         </table>
       </div>
 
-      {/* Legend */}
       <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-gray-600">
         <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={true}
-            disabled
-            className="w-4 h-4 text-blue-600"
-          />
+          <input type="checkbox" checked={true} disabled className="w-4 h-4 text-blue-600" />
           <span>Permission assigned</span>
         </div>
         <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={false}
-            disabled
-            className="w-4 h-4"
-          />
+          <input type="checkbox" checked={false} disabled className="w-4 h-4" />
           <span>Permission not assigned</span>
         </div>
         <div className="flex items-center space-x-2">
