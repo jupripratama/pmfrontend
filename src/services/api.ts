@@ -1,21 +1,21 @@
+// services/api.ts - UPDATED VERSION
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
 import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
+import { AssignPermissionsRequest, CreatePermissionRequest, CreateRoleRequest, Permission, Role, RolePermission, RolePermissionMatrix } from '../types/permission';
 
 // Determine base URL based on environment
 const getBaseURL = () => {
-  // Jika di development, gunakan proxy (empty string)
   if (import.meta.env.DEV) {
     return '';
   }
-  // Jika di production, gunakan URL dari environment
   return import.meta.env.VITE_API_URL || 'https://pm-mkn-production.up.railway.app';
 };
 
 const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 30000,
-  withCredentials: false, // Set false dulu untuk avoid CORS issues
+  withCredentials: false,
 });
 
 // Enhanced request interceptor
@@ -26,7 +26,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Add content type if not set
     if (!config.headers['Content-Type']) {
       config.headers['Content-Type'] = 'application/json';
     }
@@ -64,7 +63,6 @@ api.interceptors.response.use(
       config: error.config
     });
     
-    // Handle specific error cases
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       console.error('🌐 Network Error Details:');
       console.error('- Backend URL:', getBaseURL());
@@ -79,7 +77,6 @@ api.interceptors.response.use(
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       localStorage.removeItem('permissions');
-      // Don't redirect here, let component handle it
     } else if (error.response?.status === 403) {
       console.warn('🚫 Forbidden - Insufficient permissions');
     }
@@ -94,7 +91,7 @@ export const testConnection = async (): Promise<{ success: boolean; message: str
     console.log('🔗 Testing connection to:', getBaseURL());
     const response = await api.get('/api/auth/profile', { 
       timeout: 10000,
-      validateStatus: (status) => status < 500 // Consider any status < 500 as connection success
+      validateStatus: (status) => status < 500
     });
     console.log('🔗 Connection test response status:', response.status);
     return { 
@@ -117,7 +114,6 @@ export const authApi = {
       console.log('🔐 Login attempt to:', `${getBaseURL()}/api/auth/login`);
       
       const response = await api.post('/api/auth/login', credentials);
-      
       console.log('🔐 Login response received:', response.data);
       
       const data = response.data.data;
@@ -133,7 +129,6 @@ export const authApi = {
     } catch (error: any) {
       console.error('❌ Login API error:', error);
       
-      // Enhanced error message
       if (error.code === 'ERR_NETWORK') {
         throw new Error('Tidak dapat terhubung ke server. Pastikan backend sedang berjalan dan dapat diakses.');
       }
@@ -144,31 +139,107 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<User> => {
+    console.log('📡 Fetching user profile...');
     const response = await api.get('/api/auth/profile');
-    return response.data.data;
+    console.log('✅ Profile response:', response.data);
+    
+    // ✅ Handle structured response
+    let userData: User;
+    
+    if (response.data.data) {
+      // Structured response: { statusCode, message, data, meta }
+      userData = response.data.data;
+    } else {
+      // Direct response (fallback)
+      userData = response.data;
+    }
+    
+    console.log('✅ Extracted user data:', userData);
+    
+    // ✅ Validate required fields
+    if (!userData || !userData.userId) {
+      throw new Error('Invalid user data received from server');
+    }
+    
+    // ✅ Update localStorage
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    return userData;
   },
 
-  updateProfile: async (data: { fullName?: string; email?: string }): Promise<User> => {
-    try {
-      console.log('🔄 Updating profile:', data);
-      const response = await api.put('/api/auth/profile', data);
-      
-      // Update local storage
-      const updatedUser = response.data.data;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      console.log('✅ Profile updated successfully');
-      return updatedUser;
-    } catch (error: any) {
-      console.error('❌ Error updating profile:', error);
-      const errorMessage = error.response?.data?.message || error.message;
-      throw new Error(errorMessage || 'Failed to update profile');
+  uploadProfilePhoto: async (userId: number, file: File): Promise<{ photoUrl: string }> => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    
+    console.log('📤 Uploading photo for user:', userId);
+    
+    const response = await api.post(`/api/users/${userId}/photo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log('📤 Photo upload response:', response.data);
+
+    // ✅ Handle both response structures
+    let photoUrl: string;
+    
+    if (response.data.data) {
+      photoUrl = response.data.data.photoUrl || response.data.data;
+    } else {
+      photoUrl = response.data.photoUrl || response.data;
     }
+    
+    if (!photoUrl) {
+      console.error('❌ No photoUrl in response:', response.data);
+      throw new Error('PhotoUrl not found in response');
+    }
+
+    console.log('✅ Photo uploaded successfully:', photoUrl);
+    
+    return { photoUrl };
+  },
+
+  deleteProfilePhoto: async (userId: number): Promise<void> => {
+    console.log('🗑️ Deleting photo for user:', userId);
+    await api.delete(`/api/users/${userId}/photo`);
+    console.log('✅ Photo deleted successfully');
+  },
+
+  updateProfile: async (userId: number, profileData: {
+    fullName?: string;
+    email?: string;
+  }): Promise<User> => {
+    console.log('📝 Updating profile for user:', userId, profileData);
+    const response = await api.put(`/api/users/${userId}`, profileData);
+    console.log('✅ Profile updated:', response.data);
+    
+    const updatedUser = response.data.data;
+    
+    return updatedUser;
   },
 
   getPermissions: (): string[] => {
     const permissionsStr = localStorage.getItem('permissions');
     return permissionsStr ? JSON.parse(permissionsStr) : [];
+  },
+
+  register: async (userData: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+  }): Promise<void> => {
+    const response = await api.post('/api/auth/register', userData);
+    return response.data;
+  },
+
+  changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {
+    await api.post('/api/auth/change-password', {
+      currentPassword: oldPassword,
+      newPassword: newPassword,
+      confirmPassword: newPassword
+    });
   },
 
   logout: () => {
@@ -178,14 +249,14 @@ export const authApi = {
     console.log('👋 Logout successful');
   },
 
-  // Health check for server status
+
   healthCheck: async (): Promise<boolean> => {
     try {
       const response = await api.get('/api/auth/profile', { 
         timeout: 5000,
-        validateStatus: () => true // Don't throw on any status
+        validateStatus: () => true
       });
-      return response.status < 500; // Consider any status < 500 as server online
+      return response.status < 500;
     } catch (error: any) {
       console.error('🔍 Health check failed:', error);
       return false;
@@ -195,7 +266,6 @@ export const authApi = {
 
 // Call Record API functions
 export const callRecordApi = {
-  // Get daily summary for specific date
   getDailySummary: async (date: string): Promise<DailySummary> => {
     try {
       console.log('📡 API Call: getDailySummary', { date });
@@ -209,7 +279,6 @@ export const callRecordApi = {
     }
   },
 
-  // Get overall summary with date range
   getOverallSummary: async (startDate: string, endDate: string): Promise<any> => {
     try {
       const response = await api.get(`/api/call-records/summary/overall?startDate=${startDate}&endDate=${endDate}`);
@@ -220,7 +289,6 @@ export const callRecordApi = {
     }
   },
 
-  // Get call records with pagination and filtering
   getCallRecords: async (
     startDate?: string, 
     endDate?: string, 
@@ -275,7 +343,6 @@ export const callRecordApi = {
     }
   },
 
-  // Import CSV file
   importCsv: async (file: File): Promise<UploadCsvResponse> => {
     try {
       const formData = new FormData();
@@ -285,7 +352,7 @@ export const callRecordApi = {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
-        timeout: 60000 // 60 seconds for file upload
+        timeout: 60000
       });
       return response.data.data;
     } catch (error: any) {
@@ -294,7 +361,6 @@ export const callRecordApi = {
     }
   },
 
-  // Export call records as CSV file (date range)
   exportCsv: async (startDate: string, endDate: string): Promise<void> => {
     try {
       const response = await api.get(`/api/call-records/export/csv?startDate=${startDate}&endDate=${endDate}`, {
@@ -317,7 +383,6 @@ export const callRecordApi = {
     }
   },
 
-  // Export call records for specific date as CSV
   exportDailyCsv: async (date: string): Promise<void> => {
     try {
       const response = await api.get(`/api/call-records/export/csv/${date}`, {
@@ -340,7 +405,6 @@ export const callRecordApi = {
     }
   },
 
-  // Export daily summary to Excel
   exportDailySummaryExcel: async (date: string): Promise<void> => {
     try {
       const response = await api.get(`/api/call-records/export/daily-summary/${date}`, {
@@ -363,7 +427,6 @@ export const callRecordApi = {
     }
   },
 
-  // Export overall summary to Excel
   exportOverallSummaryExcel: async (startDate: string, endDate: string): Promise<void> => {
     try {
       const response = await api.get(`/api/call-records/export/overall-summary?startDate=${startDate}&endDate=${endDate}`, {
@@ -386,7 +449,6 @@ export const callRecordApi = {
     }
   },
 
-  // Delete call records for specific date
   deleteCallRecords: async (date: string): Promise<boolean> => {
     try {
       console.log('🗑️ Delete API call for date:', date);
@@ -395,7 +457,6 @@ export const callRecordApi = {
       
       console.log('📊 Delete API Response:', response.data);
       
-      // Handle response structure based on BE
       if (response.data?.data?.deleted !== undefined) {
         return response.data.data.deleted;
       } else if (response.data?.deleted !== undefined) {
@@ -419,7 +480,6 @@ export const callRecordApi = {
     }
   },
 
-  // Get fleet statistics
   getFleetStatistics: async (
     date?: string, 
     top: number = 10, 
@@ -443,5 +503,118 @@ export const callRecordApi = {
       const errorMessage = error.response?.data?.message || error.message;
       throw new Error(`Failed to load fleet statistics: ${errorMessage}`);
     }
+  },
+};
+
+// Permission APIs
+export const permissionApi = {
+  getAll: async (): Promise<Permission[]> => {
+    const response = await api.get('/api/permissions');
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<Permission> => {
+    const response = await api.get(`/api/permissions/${id}`);
+    return response.data.data;
+  },
+
+  create: async (data: CreatePermissionRequest): Promise<Permission> => {
+    const response = await api.post('/api/permissions', data);
+    return response.data.data;
+  },
+
+  update: async (id: number, data: CreatePermissionRequest): Promise<Permission> => {
+    const response = await api.put(`/api/permissions/${id}`, data);
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/api/permissions/${id}`);
+  },
+};
+
+// Role APIs
+export const roleApi = {
+  getAll: async (): Promise<Role[]> => {
+    const response = await api.get('/api/roles');
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<Role> => {
+    const response = await api.get(`/api/roles/${id}`);
+    return response.data.data;
+  },
+
+  create: async (data: CreateRoleRequest): Promise<Role> => {
+    const response = await api.post('/api/roles', data);
+    return response.data.data;
+  },
+
+  update: async (id: number, data: CreateRoleRequest): Promise<Role> => {
+    const response = await api.put(`/api/roles/${id}`, data);
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/api/roles/${id}`);
+  },
+};
+
+// Role-Permission APIs
+export const rolePermissionApi = {
+  getMatrix: async (): Promise<RolePermissionMatrix[]> => {
+    const response = await api.get('/api/role-permissions/matrix');
+    return response.data.data;
+  },
+
+  getByRole: async (roleId: number): Promise<RolePermission[]> => {
+    const response = await api.get(`/api/role-permissions/by-role/${roleId}`);
+    return response.data.data;
+  },
+
+  assignPermissions: async (roleId: number, permissionIds: number[]): Promise<void> => {
+    await api.put(`/api/role-permissions/role/${roleId}`, { permissionIds });
+  },
+
+  removePermission: async (roleId: number, permissionId: number): Promise<void> => {
+    await api.delete(`/api/role-permissions/role/${roleId}/permission/${permissionId}`);
+  },
+};
+
+// ✅ UPDATED User Management APIs
+export const userApi = {
+  getAll: async (): Promise<User[]> => {
+    console.log('📡 Fetching all users...');
+    const response = await api.get('/api/users');
+    console.log('✅ Users fetched:', response.data.data);
+    return response.data.data;
+  },
+
+  getById: async (id: number): Promise<User> => {
+    console.log('📡 Fetching user by ID:', id);
+    const response = await api.get(`/api/users/${id}`);
+    console.log('✅ User fetched:', response.data.data);
+    return response.data.data;
+  },
+
+  updateRole: async (userId: number, roleId: number): Promise<User> => {
+    console.log('📝 Updating user role:', { userId, roleId });
+    const response = await api.patch(`/api/users/${userId}/role`, { roleId });
+    console.log('✅ User role updated:', response.data.data);
+    return response.data.data;
+  },
+
+  activateUser: async (userId: number): Promise<User> => {
+    console.log('✅ Activating user:', userId);
+    const response = await api.patch(`/api/users/${userId}/activate`);
+    console.log('✅ User activated:', response.data.data);
+    return response.data.data;
+  },
+
+  deactivateUser: async (userId: number): Promise<User> => {
+    console.log('🚫 Deactivating user:', userId);
+    const response = await api.patch(`/api/users/${userId}/deactivate`);
+    console.log('✅ User deactivated:', response.data.data);
+    return response.data.data;
   },
 };
