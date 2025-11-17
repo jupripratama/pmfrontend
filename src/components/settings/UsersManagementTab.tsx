@@ -1,4 +1,3 @@
-// components/settings/UsersManagementTab.tsx - UPDATED FULL VERSION
 import React, { useState, useEffect } from 'react';
 import { userApi, roleApi } from '../../services/api';
 import { User } from '../../types/auth';
@@ -14,7 +13,7 @@ import {
   XCircle,
   Eye,
   X,
-  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 export default function UsersManagementTab() {
@@ -101,6 +100,24 @@ export default function UsersManagementTab() {
       setMessage({
         type: 'error',
         text: error.response?.data?.message || 'Gagal mengubah role',
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: number, fullName: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus user "${fullName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+
+    try {
+      await userApi.deleteUser(userId);
+      setMessage({ type: 'success', text: `User "${fullName}" berhasil dihapus` });
+      await fetchData();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Gagal menghapus user',
       });
     }
   };
@@ -336,7 +353,7 @@ export default function UsersManagementTab() {
                       {user.isActive ? (
                         <button
                           onClick={() => handleDeactivate(user.userId)}
-                          className="text-red-600 hover:text-red-800 p-1"
+                          className="text-orange-600 hover:text-orange-800 p-1"
                           title="Deactivate User"
                         >
                           <UserX className="w-5 h-5" />
@@ -350,6 +367,13 @@ export default function UsersManagementTab() {
                           <UserCheck className="w-5 h-5" />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteUser(user.userId, user.fullName)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Delete User"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                     </div>
                   </td>
                 </tr>

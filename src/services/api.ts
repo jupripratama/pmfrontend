@@ -1,4 +1,4 @@
-// services/api.ts - UPDATED VERSION
+// services/api.ts - UPDATED VERSION WITH WORKING USER MANAGEMENT API
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
 import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
@@ -12,7 +12,7 @@ const getBaseURL = () => {
   return import.meta.env.VITE_API_URL || 'https://pm-mkn-production.up.railway.app';
 };
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 30000,
   withCredentials: false,
@@ -581,7 +581,7 @@ export const rolePermissionApi = {
   },
 };
 
-// ✅ UPDATED User Management APIs
+// ✅ UPDATED User Management APIs - WORKING VERSION
 export const userApi = {
   getAll: async (): Promise<User[]> => {
     console.log('📡 Fetching all users...');
@@ -616,5 +616,11 @@ export const userApi = {
     const response = await api.patch(`/api/users/${userId}/deactivate`);
     console.log('✅ User deactivated:', response.data.data);
     return response.data.data;
+  },
+
+  deleteUser: async (userId: number): Promise<void> => {
+    console.log('🗑️ Deleting user:', userId);
+    await api.delete(`/api/users/${userId}`);
+    console.log('✅ User deleted successfully');
   },
 };

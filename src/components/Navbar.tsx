@@ -1,4 +1,4 @@
-// components/Navbar.tsx - COMPLETE CODE WITH ALL FEATURES
+// components/Navbar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  ClipboardList, // <-- Tambah icon
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -25,22 +26,32 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
 }
 
+// === TAMBAHKAN INTERFACE NAV ITEM ===
+interface NavItem {
+  name: string;
+  path: string;
+  icon: any;
+  id: string;
+  forAll?: boolean;
+  permission?: string;
+}
+
 export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
-  const { user, logout } = useAuth();
+  const { user: authUser, logout } = useAuth(); // <-- Ganti nama: user → authUser
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(user); // ✅ Local state untuk reactive updates
+  const [currentUser, setCurrentUser] = useState(authUser);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCallRecordsOpen, setIsCallRecordsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Update currentUser saat user berubah dari AuthContext
+  // === UPDATE currentUser saat authUser berubah ===
   useEffect(() => {
-    setCurrentUser(user);
-  }, [user]);
+    setCurrentUser(authUser);
+  }, [authUser]);
 
-  // ✅ Listen ke localStorage changes untuk update photo real-time
+  // === LISTEN LOCALSTORAGE (photo update, dll) ===
   useEffect(() => {
     const handleStorageChange = () => {
       const updatedUser = localStorage.getItem('user');
@@ -54,10 +65,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
       }
     };
 
-    // Listen storage events (dari tab lain)
     window.addEventListener('storage', handleStorageChange);
-    
-    // ✅ Polling localStorage setiap 1 detik untuk same-tab updates
     const interval = setInterval(() => {
       const storageUser = localStorage.getItem('user');
       if (storageUser) {
@@ -78,7 +86,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     };
   }, [currentUser]);
 
-  // ✅ Force refresh user data on mount
+  // === REFRESH PROFILE ON MOUNT ===
   useEffect(() => {
     const refreshUserData = async () => {
       try {
@@ -88,11 +96,10 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
         console.error('Failed to refresh user data:', error);
       }
     };
-
     refreshUserData();
   }, []);
 
-  // Close dropdown when clicking outside
+  // === CLICK OUTSIDE ===
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -102,12 +109,11 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
         setIsCallRecordsOpen(false);
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Get user initials
+  // === HELPER: GET INITIALS ===
   const getUserInitials = () => {
     if (!currentUser?.fullName) return 'U';
     const names = currentUser.fullName.split(' ');
@@ -117,65 +123,94 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     return names[0][0].toUpperCase();
   };
 
-  // Check if user is Super Admin or Admin
+  // === ROLE & PERMISSION CHECK ===
   const isSuperAdmin = currentUser?.roleName === 'Super Admin';
   const isAdmin = currentUser?.roleId === 1 || currentUser?.roleId === 2;
 
-  // 🎯 NAVIGATION ITEMS - BERBEDA UNTUK USER DAN ADMIN
-  const navItems = [
+  // === PERMISSION HELPER ===
+  const hasPermission = (perm: string) => {
+    const permissions = localStorage.getItem('permissions');
+    if (!permissions) return false;
+    try {
+      return JSON.parse(permissions).includes(perm);
+    } catch {
+      return false;
+    }
+  };
+
+  // === ROLE-BASED ACCESS: Super Admin, Admin, supvkpc ===
+  const allowedRoles = ['Super Admin', 'Admin', 'supvkpc'];
+  const isAllowedRole = currentUser && allowedRoles.includes(currentUser.roleName);
+
+  // === NAV ITEMS ===
+  const navItems: NavItem[] = [
     {
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
       id: 'dashboard',
-      forAll: true, // Semua user bisa akses
+      forAll: true,
     },
     {
       name: 'Fleet Statistics',
       path: '/fleet-statistics',
       icon: TrendingUp,
       id: 'fleet-statistics',
-      forAll: false, // Hanya admin
+      forAll: false,
     },
     {
       name: 'Docs',
       path: '/docs',
       icon: BookOpen,
       id: 'docs',
-      forAll: true, // Semua user bisa akses
+      forAll: true,
+    },
+    // === MENU BARU: INSPEKSI KPC ===
+    {
+      name: 'Inspeksi KPC',
+      path: '/inspeksi-kpc',
+      icon: ClipboardList,
+      id: 'inspeksi-kpc',
+      permission: 'inspeksi.temuan-kpc.view',
     },
   ];
 
-  // 📞 CALL RECORDS MENU - BERBEDA UNTUK USER DAN ADMIN
+  // === CALL RECORDS MENU ===
   const callRecordsMenu = [
     {
       name: 'View Records',
       path: '/callrecords',
       icon: Phone,
       id: 'callrecords',
-      forAll: true, // Semua user bisa lihat records
+      forAll: true,
     },
     {
       name: 'Upload CSV',
       path: '/upload',
       icon: Upload,
       id: 'upload',
-      forAll: false, // Hanya admin bisa upload
+      forAll: false,
     },
     {
       name: 'Export Data',
       path: '/export',
       icon: Download,
       id: 'export',
-      forAll: false, // Hanya admin bisa export
+      forAll: false,
     },
   ];
 
-  // Filter menu based on user role
-  const filteredNavItems = navItems.filter(item => item.forAll || isAdmin);
+  // === FILTER NAV ITEMS ===
+  const filteredNavItems = navItems.filter(item => {
+    if (item.forAll) return true;
+    if (item.id === 'inspeksi-kpc') return isAllowedRole; // <-- LANGSUNG CEK ROLE
+    if (item.permission) return hasPermission(item.permission);
+    return isAdmin;
+  });
+
   const filteredCallRecords = callRecordsMenu.filter(item => item.forAll || isAdmin);
 
-  // Add Settings menu for Super Admin only
+  // === ADD SETTINGS FOR SUPERADMIN ===
   if (isSuperAdmin) {
     filteredNavItems.push({
       name: 'Settings',
@@ -199,12 +234,8 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     >
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          {/* Logo/Brand */}
-          <Link
-            to="/dashboard"
-            onClick={() => setActiveTab('dashboard')}
-            className="flex items-center space-x-2 group"
-          >
+          {/* Logo */}
+          <Link to="/dashboard" onClick={() => setActiveTab('dashboard')} className="flex items-center space-x-2 group">
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.5 }}
@@ -217,9 +248,8 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-2">
-            {/* Regular Nav Items */}
             {filteredNavItems.filter(item => item.id !== 'settings').map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -249,11 +279,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               >
                 <Phone className="w-4 h-4" />
                 <span>Call Records</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${
-                    isCallRecordsOpen ? 'rotate-180' : ''
-                  }`}
-                />
+                <ChevronDown className={`w-4 h-4 transition-transform ${isCallRecordsOpen ? 'rotate-180' : ''}`} />
               </button>
 
               <AnimatePresence>
@@ -277,9 +303,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                             setIsCallRecordsOpen(false);
                           }}
                           className={`flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${
-                            isActive
-                              ? 'bg-blue-50 text-blue-600 font-medium'
-                              : 'text-gray-700 hover:bg-gray-50'
+                            isActive ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'
                           }`}
                         >
                           <Icon className="w-5 h-5" />
@@ -292,7 +316,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               </AnimatePresence>
             </div>
 
-            {/* Settings - Super Admin Only */}
+            {/* Settings */}
             {isSuperAdmin && (
               <Link
                 to="/settings"
@@ -309,27 +333,22 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
             )}
           </div>
 
-          {/* User Profile + Mobile Menu Button */}
+          {/* Profile + Mobile */}
           <div className="flex items-center space-x-3">
-            {/* User Profile Dropdown - Desktop */}
+            {/* Desktop Profile */}
             <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center space-x-3 hover:bg-white/15 rounded-xl px-3 py-2 transition-all group"
               >
-                {/* ✅ Avatar with reactive photo */}
                 {currentUser?.photoUrl ? (
                   <motion.img
-                    key={currentUser.photoUrl} // ✅ Force re-render saat URL berubah
+                    key={currentUser.photoUrl}
                     whileHover={{ scale: 1.1 }}
                     src={currentUser.photoUrl}
                     alt={currentUser.fullName}
                     className="w-9 h-9 rounded-full object-cover border-2 border-white/40 shadow-lg"
-                    onError={(e) => {
-                      // ✅ Fallback jika gambar gagal load
-                      console.error('Failed to load image:', currentUser.photoUrl);
-                      e.currentTarget.style.display = 'none';
-                    }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 ) : (
                   <motion.div
@@ -340,22 +359,15 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   </motion.div>
                 )}
 
-                {/* User Info */}
                 <div className="hidden lg:block text-left">
-                  <p className="text-sm font-semibold text-white">
-                    {currentUser?.fullName || 'User'}
-                  </p>
+                  <p className="text-sm font-semibold text-white">{currentUser?.fullName || 'User'}</p>
                   <p className="text-xs text-white/70">{currentUser?.roleName || 'Role'}</p>
                 </div>
 
-                <ChevronDown
-                  className={`w-4 h-4 text-white/70 transition-transform ${
-                    isProfileOpen ? 'rotate-180' : ''
-                  }`}
-                />
+                <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown */}
               <AnimatePresence>
                 {isProfileOpen && (
                   <motion.div
@@ -364,30 +376,23 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
                   >
-                    {/* User Info in Dropdown */}
                     <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
                       <div className="flex items-center space-x-3">
-                        {/* ✅ Avatar in dropdown */}
                         {currentUser?.photoUrl ? (
                           <img
                             key={currentUser.photoUrl}
                             src={currentUser.photoUrl}
                             alt={currentUser.fullName}
                             className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
                             {getUserInitials()}
                           </div>
                         )}
-                        
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {currentUser?.fullName}
-                          </p>
+                          <p className="font-semibold text-gray-900 truncate">{currentUser?.fullName}</p>
                           <p className="text-xs text-gray-600 truncate">{currentUser?.email}</p>
                           <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium">
                             {currentUser?.roleName}
@@ -398,10 +403,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
                     <Link
                       to="/profile"
-                      onClick={() => {
-                        setIsProfileOpen(false);
-                        setActiveTab('profile');
-                      }}
+                      onClick={() => { setIsProfileOpen(false); setActiveTab('profile'); }}
                       className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                     >
                       <User className="w-5 h-5 text-blue-600" />
@@ -430,7 +432,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* === MOBILE MENU (SUDAH TERMASUK INSPEKSI) === */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
@@ -440,30 +442,24 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               className="md:hidden bg-white/95 backdrop-blur-xl border-t border-gray-200 rounded-b-2xl shadow-xl overflow-hidden mb-2"
             >
               <div className="py-3 space-y-1 px-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
-                {/* User Info in Mobile Menu */}
+                {/* User Info */}
                 <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
                   <div className="flex items-center space-x-3">
-                    {/* ✅ Avatar in mobile menu */}
                     {currentUser?.photoUrl ? (
                       <img
                         key={currentUser.photoUrl}
                         src={currentUser.photoUrl}
                         alt={currentUser.fullName}
                         className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
                         {getUserInitials()}
                       </div>
                     )}
-                    
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">
-                        {currentUser?.fullName}
-                      </p>
+                      <p className="font-semibold text-gray-900 text-sm truncate">{currentUser?.fullName}</p>
                       <p className="text-xs text-gray-600 truncate">{currentUser?.email}</p>
                       <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">
                         {currentUser?.roleName}
@@ -472,7 +468,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   </div>
                 </div>
 
-                {/* Navigation Items */}
+                {/* === NAV ITEMS (SUDAH TERMASUK INSPEKSI) === */}
                 {filteredNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
@@ -497,11 +493,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   );
                 })}
 
-                {/* Call Records in Mobile Menu */}
+                {/* Call Records */}
                 <div className="pt-2 border-t border-gray-200">
-                  <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
-                    Call Records
-                  </p>
+                  <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Call Records</p>
                   {filteredCallRecords.map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.path;
@@ -515,9 +509,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                           setIsMobileMenuOpen(false);
                         }}
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                          isActive
-                            ? 'bg-blue-100 text-blue-700 shadow-sm'
-                            : 'text-gray-700 hover:bg-gray-100'
+                          isActive ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
                         <Icon className="w-5 h-5" />
@@ -527,14 +519,11 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   })}
                 </div>
 
-                {/* Profile & Logout in Mobile */}
+                {/* Profile & Logout */}
                 <div className="pt-2 mt-2 border-t border-gray-200 space-y-1">
                   <Link
                     to="/profile"
-                    onClick={() => {
-                      setActiveTab('profile');
-                      setIsMobileMenuOpen(false);
-                    }}
+                    onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }}
                     className="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-all"
                   >
                     <User className="w-5 h-5 text-blue-600" />
