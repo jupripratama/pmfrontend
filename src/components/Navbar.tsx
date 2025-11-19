@@ -1,4 +1,4 @@
-// components/Navbar.tsx
+// components/Navbar.tsx - COMPLETE DYNAMIC PERMISSION-BASED MENU
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,7 +18,7 @@ import {
   ChevronDown,
   Menu,
   X,
-  ClipboardList, // <-- Tambah icon
+  ClipboardList,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -26,18 +26,17 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
 }
 
-// === TAMBAHKAN INTERFACE NAV ITEM ===
 interface NavItem {
   name: string;
   path: string;
   icon: any;
   id: string;
-  forAll?: boolean;
-  permission?: string;
+  permission?: string; // ✅ Permission name dari database
+  forAll?: boolean;    // ✅ Menu untuk semua user
 }
 
 export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
-  const { user: authUser, logout } = useAuth(); // <-- Ganti nama: user → authUser
+  const { user: authUser, logout } = useAuth();
   const location = useLocation();
   const [currentUser, setCurrentUser] = useState(authUser);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -51,7 +50,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     setCurrentUser(authUser);
   }, [authUser]);
 
-  // === LISTEN LOCALSTORAGE (photo update, dll) ===
+  // === LISTEN LOCALSTORAGE ===
   useEffect(() => {
     const handleStorageChange = () => {
       const updatedUser = localStorage.getItem('user');
@@ -113,7 +112,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // === HELPER: GET INITIALS ===
+  // === GET INITIALS ===
   const getUserInitials = () => {
     if (!currentUser?.fullName) return 'U';
     const names = currentUser.fullName.split(' ');
@@ -123,103 +122,111 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     return names[0][0].toUpperCase();
   };
 
-  // === ROLE & PERMISSION CHECK ===
-  const isSuperAdmin = currentUser?.roleName === 'Super Admin';
-  const isAdmin = currentUser?.roleId === 1 || currentUser?.roleId === 2;
-
-  // === PERMISSION HELPER ===
-  const hasPermission = (perm: string) => {
+  // ✅ === PERMISSION CHECKER - DYNAMIC ===
+  const hasPermission = (permission: string): boolean => {
     const permissions = localStorage.getItem('permissions');
     if (!permissions) return false;
+    
     try {
-      return JSON.parse(permissions).includes(perm);
+      const permList: string[] = JSON.parse(permissions);
+      return permList.includes(permission);
     } catch {
       return false;
     }
   };
 
-  // === ROLE-BASED ACCESS: Super Admin, Admin, supvkpc ===
-  const allowedRoles = ['Super Admin', 'Admin', 'supvkpc'];
-  const isAllowedRole = currentUser && allowedRoles.includes(currentUser.roleName);
-
-  // === NAV ITEMS ===
+  // ✅ === DEFINE NAV ITEMS - PERMISSION-BASED ===
   const navItems: NavItem[] = [
     {
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
       id: 'dashboard',
-      forAll: true,
+      forAll: true, // Semua user bisa lihat
     },
     {
       name: 'Fleet Statistics',
       path: '/fleet-statistics',
       icon: TrendingUp,
       id: 'fleet-statistics',
-      forAll: false,
+      permission: 'call-record.view', // Butuh permission ini
     },
     {
       name: 'Docs',
       path: '/docs',
       icon: BookOpen,
       id: 'docs',
-      forAll: true,
+      forAll: true, // Semua user bisa lihat
     },
-    // === MENU BARU: INSPEKSI KPC ===
     {
       name: 'Inspeksi KPC',
       path: '/inspeksi-kpc',
       icon: ClipboardList,
       id: 'inspeksi-kpc',
-      permission: 'inspeksi.temuan-kpc.view',
+      permission: 'inspeksi.temuan-kpc.view', // ✅ DYNAMIC PERMISSION
+    },
+    {
+      name: 'Settings',
+      path: '/settings',
+      icon: Settings,
+      id: 'settings',
+      permission: 'role.view', // Hanya yang punya permission ini (Super Admin)
     },
   ];
 
-  // === CALL RECORDS MENU ===
-  const callRecordsMenu = [
+  // ✅ === CALL RECORDS SUBMENU - PERMISSION-BASED ===
+  const callRecordsMenu: NavItem[] = [
     {
       name: 'View Records',
       path: '/callrecords',
       icon: Phone,
       id: 'callrecords',
-      forAll: true,
+      permission: 'call-record.view',
     },
     {
       name: 'Upload CSV',
       path: '/upload',
       icon: Upload,
       id: 'upload',
-      forAll: false,
+      permission: 'call-record.import',
     },
     {
       name: 'Export Data',
       path: '/export',
       icon: Download,
       id: 'export',
-      forAll: false,
+      permission: 'call-record.export',
     },
   ];
 
-  // === FILTER NAV ITEMS ===
+  // ✅ === FILTER MENU BERDASARKAN PERMISSION ===
   const filteredNavItems = navItems.filter(item => {
+    // Jika forAll = true, tampilkan untuk semua
     if (item.forAll) return true;
-    if (item.id === 'inspeksi-kpc') return isAllowedRole; // <-- LANGSUNG CEK ROLE
-    if (item.permission) return hasPermission(item.permission);
-    return isAdmin;
+    
+    // Jika ada permission requirement, cek apakah user punya
+    if (item.permission) {
+      return hasPermission(item.permission);
+    }
+    
+    // Default: hide
+    return false;
   });
 
-  const filteredCallRecords = callRecordsMenu.filter(item => item.forAll || isAdmin);
+  const filteredCallRecords = callRecordsMenu.filter(item => {
+    if (item.forAll) return true;
+    if (item.permission) return hasPermission(item.permission);
+    return false;
+  });
 
-  // === ADD SETTINGS FOR SUPERADMIN ===
-  if (isSuperAdmin) {
-    filteredNavItems.push({
-      name: 'Settings',
-      path: '/settings',
-      icon: Settings,
-      id: 'settings',
-      forAll: false,
-    });
-  }
+  // ✅ DEBUG LOGS (Helpful untuk troubleshooting)
+  useEffect(() => {
+    const permissions = localStorage.getItem('permissions');
+    console.log('👤 Current User:', currentUser?.fullName, '|', currentUser?.roleName);
+    console.log('🔑 User Permissions:', permissions ? JSON.parse(permissions) : []);
+    console.log('📋 Visible Nav Items:', filteredNavItems.map(i => i.name));
+    console.log('📞 Visible Call Records:', filteredCallRecords.map(i => i.name));
+  }, [currentUser, filteredNavItems, filteredCallRecords]);
 
   const handleLogout = () => {
     logout();
@@ -244,13 +251,14 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               <LayoutDashboard className="w-6 h-6 text-white" />
             </motion.div>
             <span className="text-xl font-bold text-white hidden sm:block tracking-wide">
-              Call Analytics
+              PM Dashboard
             </span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-2">
-            {filteredNavItems.filter(item => item.id !== 'settings').map((item) => {
+            {/* Main Nav Items */}
+            {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
 
@@ -271,71 +279,57 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               );
             })}
 
-            {/* Call Records Dropdown */}
-            <div className="relative" ref={mobileDropdownRef}>
-              <button
-                onClick={() => setIsCallRecordsOpen(!isCallRecordsOpen)}
-                className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium text-white/80 hover:bg-white/15 hover:text-white transition-all"
-              >
-                <Phone className="w-4 h-4" />
-                <span>Call Records</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${isCallRecordsOpen ? 'rotate-180' : ''}`} />
-              </button>
+            {/* Call Records Dropdown - Only if user has any call record permissions */}
+            {filteredCallRecords.length > 0 && (
+              <div className="relative" ref={mobileDropdownRef}>
+                <button
+                  onClick={() => setIsCallRecordsOpen(!isCallRecordsOpen)}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium text-white/80 hover:bg-white/15 hover:text-white transition-all"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Records</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isCallRecordsOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              <AnimatePresence>
-                {isCallRecordsOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    className="absolute left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl py-2 overflow-hidden"
-                  >
-                    {filteredCallRecords.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = location.pathname === item.path;
+                <AnimatePresence>
+                  {isCallRecordsOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      className="absolute left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-2xl py-2 overflow-hidden"
+                    >
+                      {filteredCallRecords.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.path;
 
-                      return (
-                        <Link
-                          key={item.id}
-                          to={item.path}
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            setIsCallRecordsOpen(false);
-                          }}
-                          className={`flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${
-                            isActive ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5" />
-                          <span>{item.name}</span>
-                        </Link>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Settings */}
-            {isSuperAdmin && (
-              <Link
-                to="/settings"
-                onClick={() => setActiveTab('settings')}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  location.pathname === '/settings'
-                    ? 'bg-white/25 text-white shadow-lg backdrop-blur-lg'
-                    : 'text-white/80 hover:bg-white/15 hover:text-white'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Settings</span>
-              </Link>
+                        return (
+                          <Link
+                            key={item.id}
+                            to={item.path}
+                            onClick={() => {
+                              setActiveTab(item.id);
+                              setIsCallRecordsOpen(false);
+                            }}
+                            className={`flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${
+                              isActive ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span>{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
           </div>
 
-          {/* Profile + Mobile */}
+          {/* Profile + Mobile Menu Button */}
           <div className="flex items-center space-x-3">
-            {/* Desktop Profile */}
+            {/* Desktop Profile Dropdown */}
             <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -367,7 +361,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Dropdown */}
+              {/* Profile Dropdown */}
               <AnimatePresence>
                 {isProfileOpen && (
                   <motion.div
@@ -432,7 +426,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           </div>
         </div>
 
-        {/* === MOBILE MENU (SUDAH TERMASUK INSPEKSI) === */}
+        {/* Mobile Menu */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
@@ -468,7 +462,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   </div>
                 </div>
 
-                {/* === NAV ITEMS (SUDAH TERMASUK INSPEKSI) === */}
+                {/* Nav Items */}
                 {filteredNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
@@ -493,31 +487,33 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   );
                 })}
 
-                {/* Call Records */}
-                <div className="pt-2 border-t border-gray-200">
-                  <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Call Records</p>
-                  {filteredCallRecords.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
+                {/* Call Records Section */}
+                {filteredCallRecords.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Call Records</p>
+                    {filteredCallRecords.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
 
-                    return (
-                      <Link
-                        key={item.id}
-                        to={item.path}
-                        onClick={() => {
-                          setActiveTab(item.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                          isActive ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span>{item.name}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
+                      return (
+                        <Link
+                          key={item.id}
+                          to={item.path}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                            isActive ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Profile & Logout */}
                 <div className="pt-2 mt-2 border-t border-gray-200 space-y-1">

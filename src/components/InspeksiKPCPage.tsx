@@ -1,15 +1,215 @@
-// src/components/InspeksiKPCPage.tsx - COMPLETE WITH IMAGE PREVIEW
-import React, { useState, useEffect } from 'react';
+// src/components/InspeksiKPCPage.tsx - ENHANCED WITH DRAG-DROP & MULTI-IMAGE
+import React, { useState, useEffect, useRef, DragEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { inspeksiApi, TemuanKPC, InspeksiQueryParams } from '../services/inspeksiApi';
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+
 import { 
   Plus, Edit, Trash2, X, Check, AlertCircle, Download, 
   Filter, Search, Camera, Clock, CheckCircle, ChevronDown,
   FileText, MapPin, Calendar, User, Wrench, Image as ImageIcon,
-  ClipboardList, Archive, RotateCcw, AlertTriangle, Eye, Trash
+  ClipboardList, Archive, RotateCcw, AlertTriangle, Eye, Trash,
+  Upload, Move
 } from 'lucide-react';
+
+// Enhanced Image Upload Component with Drag & Drop
+interface ImageUploadZoneProps {
+  label: string;
+  files: File[];
+  previews: string[];
+  existingPhotos?: string[];
+  onFilesChange: (files: File[]) => void;
+  onRemovePreview: (index: number) => void;
+  onRemoveExisting?: (index: number) => void;
+  multiple?: boolean;
+  accept?: string;
+  iconColor?: string;
+}
+
+const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
+  label,
+  files,
+  previews,
+  existingPhotos = [],
+  onFilesChange,
+  onRemovePreview,
+  onRemoveExisting,
+  multiple = true,
+  accept = "image/*",
+  iconColor = "blue"
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+
+    if (droppedFiles.length > 0) {
+      const newFiles = multiple ? [...files, ...droppedFiles] : droppedFiles.slice(0, 1);
+      onFilesChange(newFiles);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const newFiles = multiple ? [...files, ...selectedFiles] : selectedFiles.slice(0, 1);
+    onFilesChange(newFiles);
+  };
+
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
+
+  const totalImages = existingPhotos.length + previews.length;
+
+  return (
+    <div>
+      <label className={`flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2`}>
+        <Camera className={`w-4 h-4 text-${iconColor}-600`} />
+        {label}
+      </label>
+
+      {/* Drag & Drop Zone */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={openFileDialog}
+        className={`
+          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+          ${isDragging 
+            ? 'border-blue-500 bg-blue-50' 
+            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+          }
+        `}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple={multiple}
+          accept={accept}
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        <div className="flex flex-col items-center gap-3">
+          <div className={`p-4 rounded-full ${isDragging ? 'bg-blue-100' : 'bg-gray-100'}`}>
+            <Upload className={`w-8 h-8 ${isDragging ? 'text-blue-600' : 'text-gray-600'}`} />
+          </div>
+          
+          <div>
+            <p className="font-medium text-gray-700">
+              {isDragging ? 'Lepaskan file di sini' : 'Klik atau drag & drop gambar di sini'}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Support: JPG, PNG, GIF (Max 10MB per file)
+            </p>
+          </div>
+
+          {totalImages > 0 && (
+            <div className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+              📸 {totalImages} gambar terpilih
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Existing Photos Grid */}
+      {existingPhotos.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium text-gray-600 mb-2">Foto yang sudah ada:</p>
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+            {existingPhotos.map((url, index) => (
+              <div key={`existing-${index}`} className="relative group">
+                <img
+                  src={url}
+                  alt={`Existing ${index + 1}`}
+                  className="w-full h-20 object-cover rounded-lg border-2 border-gray-300"
+                />
+                {onRemoveExisting && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveExisting(index);
+                    }}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                  Existing
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New Images Preview Grid */}
+      {previews.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium text-gray-600 mb-2">Foto baru yang akan diupload:</p>
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+            {previews.map((preview, index) => (
+              <div key={`preview-${index}`} className="relative group">
+                <img
+                  src={preview}
+                  alt={`Preview ${index + 1}`}
+                  className={`w-full h-20 object-cover rounded-lg border-2 border-${iconColor === 'green' ? 'green' : 'blue'}-300`}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemovePreview(index);
+                  }}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                <div className={`absolute bottom-1 left-1 bg-${iconColor === 'green' ? 'green' : 'blue'}-600 text-white text-xs px-2 py-0.5 rounded`}>
+                  New {index + 1}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* File Info */}
+      {files.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+          {files.map((file, idx) => (
+            <span key={idx} className="bg-gray-100 px-2 py-1 rounded">
+              {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function InspeksiKPCPage() {
   const { user } = useAuth();
@@ -57,7 +257,6 @@ export default function InspeksiKPCPage() {
     picPelaksana: '',
     keterangan: '',
     // Update fields
-    followUpRef: '',
     perbaikanDilakukan: '',
     tanggalPerbaikan: '',
     tanggalSelesaiPerbaikan: '',
@@ -74,12 +273,35 @@ export default function InspeksiKPCPage() {
   const [existingFotoTemuan, setExistingFotoTemuan] = useState<string[]>([]);
   const [existingFotoHasil, setExistingFotoHasil] = useState<string[]>([]);
 
+  // Helper function untuk format tanggal dengan safety check
+  const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd/MM/yyyy'): string => {
+    if (!dateString || dateString === '-') return '-';
+    
+    try {
+      const date = parseISO(dateString);
+      if (isValid(date)) {
+        return format(date, formatStr);
+      }
+      
+      const fallbackDate = new Date(dateString);
+      if (isValid(fallbackDate)) {
+        return format(fallbackDate, formatStr);
+      }
+      
+      return '-';
+    } catch (error) {
+      console.warn('Invalid date format:', dateString, error);
+      return '-';
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [currentPage, selectedRuang, selectedStatus, startDate, endDate, showHistory]);
 
+  
+
   useEffect(() => {
-    // Auto-dismiss notifications after 5 seconds
     if (error) {
       const timer = setTimeout(() => setError(''), 5000);
       return () => clearTimeout(timer);
@@ -122,7 +344,6 @@ export default function InspeksiKPCPage() {
     }
   };
 
-  // Filter data di frontend untuk search
   const filteredData = data.filter(item => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
@@ -135,32 +356,38 @@ export default function InspeksiKPCPage() {
     );
   });
 
-  // Get unique ruang for filter dropdown
   const ruangList = [...new Set(data.map(d => d.ruang))].sort();
 
-  // ✅ Handle file selection with preview
-  const handleFotoTemuanChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  // Enhanced file handlers with previews
+  const handleFotoTemuanChange = (files: File[]) => {
     setFotoTemuanFiles(files);
     
-    // Create previews
-    const previews = files.map(file => URL.createObjectURL(file));
-    setFotoTemuanPreviews(previews);
+    // Clean up old previews
+    fotoTemuanPreviews.forEach(url => URL.revokeObjectURL(url));
+    
+    // Create new previews
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setFotoTemuanPreviews(newPreviews);
   };
 
-  const handleFotoHasilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+  const handleFotoHasilChange = (files: File[]) => {
     setFotoHasilFiles(files);
     
-    // Create previews
-    const previews = files.map(file => URL.createObjectURL(file));
-    setFotoHasilPreviews(previews);
+    // Clean up old previews
+    fotoHasilPreviews.forEach(url => URL.revokeObjectURL(url));
+    
+    // Create new previews
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setFotoHasilPreviews(newPreviews);
   };
 
-  // ✅ Remove preview
   const removeFotoTemuanPreview = (index: number) => {
     const newFiles = fotoTemuanFiles.filter((_, i) => i !== index);
     const newPreviews = fotoTemuanPreviews.filter((_, i) => i !== index);
+    
+    // Clean up removed preview URL
+    URL.revokeObjectURL(fotoTemuanPreviews[index]);
+    
     setFotoTemuanFiles(newFiles);
     setFotoTemuanPreviews(newPreviews);
   };
@@ -168,8 +395,22 @@ export default function InspeksiKPCPage() {
   const removeFotoHasilPreview = (index: number) => {
     const newFiles = fotoHasilFiles.filter((_, i) => i !== index);
     const newPreviews = fotoHasilPreviews.filter((_, i) => i !== index);
+    
+    // Clean up removed preview URL
+    URL.revokeObjectURL(fotoHasilPreviews[index]);
+    
     setFotoHasilFiles(newFiles);
     setFotoHasilPreviews(newPreviews);
+  };
+
+  const removeExistingFotoTemuan = (index: number) => {
+    const newExisting = existingFotoTemuan.filter((_, i) => i !== index);
+    setExistingFotoTemuan(newExisting);
+  };
+
+  const removeExistingFotoHasil = (index: number) => {
+    const newExisting = existingFotoHasil.filter((_, i) => i !== index);
+    setExistingFotoHasil(newExisting);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,9 +421,8 @@ export default function InspeksiKPCPage() {
     
     try {
       if (isEditMode && editingId) {
-        // Update mode
         await inspeksiApi.update(editingId, {
-          followUpRef: form.followUpRef || undefined,
+          noFollowUp: form.noFollowUp || undefined,
           perbaikanDilakukan: form.perbaikanDilakukan || undefined,
           tanggalPerbaikan: form.tanggalPerbaikan || undefined,
           tanggalSelesaiPerbaikan: form.tanggalSelesaiPerbaikan || undefined,
@@ -193,8 +433,7 @@ export default function InspeksiKPCPage() {
         });
         setSuccess('Temuan berhasil diperbarui');
       } else {
-        // Create mode
-        const result = await inspeksiApi.create({
+        const createData = {
           ruang: form.ruang,
           temuan: form.temuan,
           kategoriTemuan: form.kategoriTemuan || undefined,
@@ -205,7 +444,11 @@ export default function InspeksiKPCPage() {
           picPelaksana: form.picPelaksana || undefined,
           keterangan: form.keterangan || undefined,
           fotoTemuanFiles: fotoTemuanFiles.length > 0 ? fotoTemuanFiles : undefined,
-        });
+        };
+
+        console.log('📤 Sending create data:', createData);
+        
+        const result = await inspeksiApi.create(createData);
         setSuccess(result.message || 'Temuan berhasil dibuat');
       }
       
@@ -213,8 +456,14 @@ export default function InspeksiKPCPage() {
       loadData();
       
     } catch (err: any) {
-      console.error('Error submitting:', err);
-      setError(err.response?.data?.message || 'Gagal menyimpan data');
+      console.error('❌ Error submitting:', err);
+      
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.errors?.join(', ') || 
+                          err.message || 
+                          'Gagal menyimpan data';
+      
+      setError(`Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -259,7 +508,6 @@ export default function InspeksiKPCPage() {
       noFollowUp: '',
       picPelaksana: '',
       keterangan: '',
-      followUpRef: '',
       perbaikanDilakukan: '',
       tanggalPerbaikan: '',
       tanggalSelesaiPerbaikan: '',
@@ -279,28 +527,33 @@ export default function InspeksiKPCPage() {
       setLoading(true);
       const item = await inspeksiApi.getById(id);
       
+      const validatedItem = {
+        ...item,
+        tanggalTemuan: item.tanggalTemuan || format(new Date(), 'yyyy-MM-dd'),
+        tanggalPerbaikan: item.tanggalPerbaikan || '',
+        tanggalSelesaiPerbaikan: item.tanggalSelesaiPerbaikan || '',
+      };
+      
       setIsEditMode(true);
       setEditingId(id);
       setForm({
-        ruang: item.ruang,
-        temuan: item.temuan,
-        kategoriTemuan: item.kategoriTemuan || '',
-        inspector: item.inspector || '',
-        severity: item.severity,
-        tanggalTemuan: item.tanggalTemuan,
-        noFollowUp: item.noFollowUp || '',
-        picPelaksana: item.picPelaksana || '',
-        keterangan: item.keterangan || '',
-        followUpRef: item.followUpRef || '',
-        perbaikanDilakukan: item.perbaikanDilakukan || '',
-        tanggalPerbaikan: item.tanggalPerbaikan || '',
-        tanggalSelesaiPerbaikan: item.tanggalSelesaiPerbaikan || '',
-        status: item.status,
+        ruang: validatedItem.ruang,
+        temuan: validatedItem.temuan,
+        kategoriTemuan: validatedItem.kategoriTemuan || '',
+        inspector: validatedItem.inspector || '',
+        severity: validatedItem.severity,
+        tanggalTemuan: validatedItem.tanggalTemuan,
+        noFollowUp: validatedItem.noFollowUp || '',
+        picPelaksana: validatedItem.picPelaksana || '',
+        keterangan: validatedItem.keterangan || '',
+        perbaikanDilakukan: validatedItem.perbaikanDilakukan || '',
+        tanggalPerbaikan: validatedItem.tanggalPerbaikan || '',
+        tanggalSelesaiPerbaikan: validatedItem.tanggalSelesaiPerbaikan || '',
+        status: validatedItem.status,
       });
       
-      // Set existing photos
-      setExistingFotoTemuan(item.fotoTemuanUrls || []);
-      setExistingFotoHasil(item.fotoHasilUrls || []);
+      setExistingFotoTemuan(validatedItem.fotoTemuanUrls || []);
+      setExistingFotoHasil(validatedItem.fotoHasilUrls || []);
       
       setFotoTemuanFiles([]);
       setFotoHasilFiles([]);
@@ -321,31 +574,31 @@ export default function InspeksiKPCPage() {
     setEditingId(null);
     setFotoTemuanFiles([]);
     setFotoHasilFiles([]);
-    setFotoTemuanPreviews([]);
-    setFotoHasilPreviews([]);
-    setExistingFotoTemuan([]);
-    setExistingFotoHasil([]);
     
     // Cleanup preview URLs
     fotoTemuanPreviews.forEach(url => URL.revokeObjectURL(url));
     fotoHasilPreviews.forEach(url => URL.revokeObjectURL(url));
+    
+    setFotoTemuanPreviews([]);
+    setFotoHasilPreviews([]);
+    setExistingFotoTemuan([]);
+    setExistingFotoHasil([]);
   };
 
-  const handleExport = async () => {
-    try {
-      await inspeksiApi.exportToExcel({
-        history: showHistory,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        ruang: selectedRuang || undefined,
-        status: selectedStatus || undefined,
-      });
-      setSuccess('Export berhasil');
-    } catch (err: any) {
-      setError('Gagal export data');
-    }
-  };
-
+  const handleExportWithImages = async () => {
+  try {
+    await inspeksiApi.exportToExcel({
+      history: showHistory,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      ruang: selectedRuang || undefined,
+      status: selectedStatus || undefined,
+    });
+    setSuccess('Export dengan gambar berhasil');
+  } catch (err: any) {
+    setError('Gagal export data dengan gambar');
+  }
+};
   const clearFilters = () => {
     setSelectedRuang('');
     setSelectedStatus('');
@@ -355,7 +608,6 @@ export default function InspeksiKPCPage() {
     setCurrentPage(1);
   };
 
-  // ✅ Open image gallery
   const openImageGallery = (images: string[], startIndex: number = 0) => {
     setViewingImages(images);
     setCurrentImageIndex(startIndex);
@@ -380,6 +632,17 @@ export default function InspeksiKPCPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!Array.isArray(data)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading data...</p>
+        </div>
       </div>
     );
   }
@@ -501,12 +764,12 @@ export default function InspeksiKPCPage() {
         {/* Row 2: Actions */}
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={handleExport}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export Excel
-          </button>
+          onClick={() => handleExportWithImages()}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export dengan Gambar
+        </button>
           
           <button
             onClick={() => { setShowHistory(!showHistory); setCurrentPage(1); }}
@@ -541,7 +804,11 @@ export default function InspeksiKPCPage() {
           )}
           
           <div className="text-sm text-gray-600">
-            Total: <span className="font-semibold">{totalCount}</span> temuan
+            {searchTerm ? (
+              <>Hasil pencarian: <span className="font-semibold">{filteredData.length}</span> temuan</>
+            ) : (
+              <>Total: <span className="font-semibold">{totalCount}</span> temuan</>
+            )}
           </div>
         </div>
       </div>
@@ -596,7 +863,7 @@ export default function InspeksiKPCPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.tanggalTemuan ? format(new Date(item.tanggalTemuan), 'dd/MM/yyyy') : '-'}
+                      {formatDateSafe(item.tanggalTemuan)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.fotoTemuanUrls && item.fotoTemuanUrls.length > 0 ? (
@@ -615,7 +882,7 @@ export default function InspeksiKPCPage() {
                       <div className="line-clamp-2">{item.perbaikanDilakukan || '-'}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.tanggalSelesaiPerbaikan ? format(new Date(item.tanggalSelesaiPerbaikan), 'dd/MM/yyyy') : '-'}
+                      {formatDateSafe(item.tanggalSelesaiPerbaikan)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.fotoHasilUrls && item.fotoHasilUrls.length > 0 ? (
@@ -642,7 +909,9 @@ export default function InspeksiKPCPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <div>{item.createdByName}</div>
-                      <div className="text-xs text-gray-500">{item.createdAt}</div>
+                      <div className="text-xs text-gray-500">
+                        {formatDateSafe(item.createdAt, 'dd MMM yyyy HH:mm')}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-1">
@@ -707,7 +976,7 @@ export default function InspeksiKPCPage() {
         )}
       </div>
 
-     {/* Modal Form */}
+      {/* Enhanced Modal Form with Drag & Drop */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -729,7 +998,7 @@ export default function InspeksiKPCPage() {
 
               <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
                 {!isEditMode ? (
-                  // ✅ CREATE MODE
+                  // CREATE MODE with Enhanced Image Upload
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
@@ -859,53 +1128,18 @@ export default function InspeksiKPCPage() {
                       />
                     </div>
 
-                    {/* ✅ FOTO TEMUAN UPLOAD WITH PREVIEW */}
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                        <Camera className="w-4 h-4 text-blue-600" />
-                        Foto Temuan (Multiple)
-                      </label>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleFotoTemuanChange}
-                        className="w-full px-4 py-2 border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                      
-                      {/* Preview Grid */}
-                      {fotoTemuanPreviews.length > 0 && (
-                        <div className="mt-3 grid grid-cols-4 gap-3">
-                          {fotoTemuanPreviews.map((preview, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={preview}
-                                alt={`Preview ${index + 1}`}
-                                className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeFotoTemuanPreview(index)}
-                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                              <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
-                                {index + 1}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {fotoTemuanFiles.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          📸 {fotoTemuanFiles.length} foto dipilih
-                        </p>
-                      )}
-                    </div>
+                    {/* Enhanced Foto Temuan Upload with Drag & Drop */}
+                    <ImageUploadZone
+                      label="Foto Temuan (Multiple)"
+                      files={fotoTemuanFiles}
+                      previews={fotoTemuanPreviews}
+                      onFilesChange={handleFotoTemuanChange}
+                      onRemovePreview={removeFotoTemuanPreview}
+                      iconColor="blue"
+                    />
                   </>
                 ) : (
-                  // ✅ EDIT MODE
+                  // EDIT MODE with Enhanced Image Upload
                   <>
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                       <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -934,7 +1168,7 @@ export default function InspeksiKPCPage() {
                         </div>
                         <div>
                           <span className="text-gray-600">Tanggal:</span> 
-                          <span className="ml-2">{format(new Date(form.tanggalTemuan), 'dd MMM yyyy')}</span>
+                          <span className="ml-2">{formatDateSafe(form.tanggalTemuan, 'dd MMM yyyy')}</span>
                         </div>
                         <div className="col-span-2">
                           <span className="text-gray-600">Temuan:</span> 
@@ -962,17 +1196,6 @@ export default function InspeksiKPCPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Follow Up Ref</label>
-                      <input
-                        type="text"
-                        value={form.followUpRef}
-                        onChange={(e) => setForm({ ...form, followUpRef: e.target.value })}
-                        className="w-full px-4 py-2 border rounded-lg"
-                        placeholder="Referensi follow up (email/nomor WR)"
-                      />
-                    </div>
-
-                    <div>
                       <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
                         <Wrench className="w-4 h-4" />
                         Perbaikan yang Dilakukan
@@ -985,6 +1208,18 @@ export default function InspeksiKPCPage() {
                         placeholder="Deskripsikan perbaikan yang telah dilakukan..."
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">No Follow Up</label>
+                      <input
+                        type="text"
+                        value={form.noFollowUp}
+                        onChange={(e) => setForm({ ...form, noFollowUp: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg"
+                        placeholder="Referensi follow up (email/nomor WR)"
+                      />  
+                    </div>
+                        
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
@@ -1053,72 +1288,17 @@ export default function InspeksiKPCPage() {
                       />
                     </div>
 
-                    {/* ✅ FOTO HASIL UPLOAD WITH PREVIEW */}
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                        <Camera className="w-4 h-4 text-green-600" />
-                        Foto Hasil Perbaikan (Multiple)
-                      </label>
-                      
-                      {/* Show existing photos */}
-                      {existingFotoHasil.length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-xs text-gray-600 mb-2">Foto yang sudah ada:</p>
-                          <div className="grid grid-cols-4 gap-2">
-                            {existingFotoHasil.map((url, index) => (
-                              <img
-                                key={index}
-                                src={url}
-                                alt={`Hasil ${index + 1}`}
-                                className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-75"
-                                onClick={() => openImageGallery(existingFotoHasil, index)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleFotoHasilChange}
-                        className="w-full px-4 py-2 border rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                      />
-                      
-                      {/* Preview NEW uploads */}
-                      {fotoHasilPreviews.length > 0 && (
-                        <div className="mt-3">
-                          <p className="text-xs text-gray-600 mb-2">Foto baru yang akan diupload:</p>
-                          <div className="grid grid-cols-4 gap-3">
-                            {fotoHasilPreviews.map((preview, index) => (
-                              <div key={index} className="relative group">
-                                <img
-                                  src={preview}
-                                  alt={`Preview ${index + 1}`}
-                                  className="w-full h-24 object-cover rounded-lg border-2 border-green-300"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeFotoHasilPreview(index)}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                                <div className="absolute bottom-1 left-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded">
-                                  New {index + 1}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {fotoHasilFiles.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          📸 {fotoHasilFiles.length} foto baru akan ditambahkan
-                        </p>
-                      )}
-                    </div>
+                    {/* Enhanced Foto Hasil Upload with Drag & Drop */}
+                    <ImageUploadZone
+                      label="Foto Hasil Perbaikan (Multiple)"
+                      files={fotoHasilFiles}
+                      previews={fotoHasilPreviews}
+                      existingPhotos={existingFotoHasil}
+                      onFilesChange={handleFotoHasilChange}
+                      onRemovePreview={removeFotoHasilPreview}
+                      onRemoveExisting={removeExistingFotoHasil}
+                      iconColor="green"
+                    />
                   </>
                 )}
 
@@ -1155,7 +1335,7 @@ export default function InspeksiKPCPage() {
         )}
       </AnimatePresence>
 
-      {/* ✅ IMAGE GALLERY MODAL */}
+      {/* Image Gallery Modal */}
       <AnimatePresence>
         {showImageGallery && (
           <div 
@@ -1169,7 +1349,6 @@ export default function InspeksiKPCPage() {
               className="relative max-w-4xl w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button */}
               <button
                 onClick={closeImageGallery}
                 className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2"
@@ -1178,12 +1357,10 @@ export default function InspeksiKPCPage() {
                 <span>Close (ESC)</span>
               </button>
 
-              {/* Image counter */}
               <div className="absolute -top-12 left-0 text-white text-sm">
                 {currentImageIndex + 1} / {viewingImages.length}
               </div>
 
-              {/* Main image */}
               <div className="bg-white rounded-lg overflow-hidden">
                 <img
                   src={viewingImages[currentImageIndex]}
@@ -1192,7 +1369,6 @@ export default function InspeksiKPCPage() {
                 />
               </div>
 
-              {/* Navigation */}
               {viewingImages.length > 1 && (
                 <>
                   <button
@@ -1210,7 +1386,6 @@ export default function InspeksiKPCPage() {
                 </>
               )}
 
-              {/* Thumbnails */}
               {viewingImages.length > 1 && (
                 <div className="mt-4 flex gap-2 justify-center overflow-x-auto pb-2">
                   {viewingImages.map((img, index) => (
@@ -1238,7 +1413,6 @@ export default function InspeksiKPCPage() {
       {/* Keyboard navigation for gallery */}
       {showImageGallery && (
         <div className="hidden">
-          {/* eslint-disable-next-line */}
           <div
             onKeyDown={(e) => {
               if (e.key === 'Escape') closeImageGallery();
@@ -1253,4 +1427,3 @@ export default function InspeksiKPCPage() {
     </div>
   );
 }
-   

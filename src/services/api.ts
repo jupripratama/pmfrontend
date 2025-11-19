@@ -224,15 +224,40 @@ export const authApi = {
     return permissionsStr ? JSON.parse(permissionsStr) : [];
   },
 
-  register: async (userData: {
-    username: string;
-    email: string;
-    password: string;
-    fullName: string;
-  }): Promise<void> => {
-    const response = await api.post('/api/auth/register', userData);
-    return response.data;
-  },
+ 
+register: async (userData: {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<void> => {
+  console.log('📤 Sending register request:', {
+    username: userData.username,
+    email: userData.email,
+    fullName: userData.fullName,
+    // Don't log password
+  });
+
+  // ✅ ADD confirmPassword to match backend DTO
+  const requestData = {
+    username: userData.username,
+    email: userData.email,
+    password: userData.password,
+    confirmPassword: userData.password,  // ← TAMBAHKAN INI!
+    fullName: userData.fullName,
+  };
+
+  console.log('📦 Request payload (with confirmPassword):', {
+    ...requestData,
+    password: '***',
+    confirmPassword: '***'
+  });
+
+  const response = await api.post('/api/auth/register', requestData);
+  
+  console.log('✅ Register response:', response.data);
+  return response.data;
+},
 
   changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {
     await api.post('/api/auth/change-password', {

@@ -1,4 +1,3 @@
-// src/services/inspeksiApi.ts - COMPLETE VERSION
 import { api } from './api';
 
 export interface TemuanKPC {
@@ -18,11 +17,9 @@ export interface TemuanKPC {
   status: 'Open' | 'In Progress' | 'Closed' | 'Rejected';
   keterangan?: string;
   
-  // Arrays of image URLs
   fotoTemuanUrls?: string[];
   fotoHasilUrls?: string[];
   
-  // Display text
   fotoTemuan?: string;
   fotoHasil?: string;
   
@@ -30,6 +27,9 @@ export interface TemuanKPC {
   createdAt?: string;
   updatedByName?: string;
   updatedAt?: string;
+  
+  // ✅ TAMBAHKAN UNTUK HISTORY
+  isDeleted?: boolean;
 }
 
 export interface InspeksiQueryParams {
@@ -50,26 +50,62 @@ export interface PagedResponse<T> {
   totalPages: number;
 }
 
+export interface DeleteResponse {
+  message: string;
+}
+
 export const inspeksiApi = {
   getAll: async (params?: InspeksiQueryParams): Promise<PagedResponse<TemuanKPC>> => {
-    console.log('📡 Fetching inspeksi data with params:', params);
-    const res = await api.get('/api/inspeksi-temuan-kpc', { params });
-    console.log('✅ Inspeksi data received:', res.data);
-    return res.data.data || res.data;
+    // ✅ FIX: Gunakan queryParams yang sudah dibuat, bukan params langsung
+    const queryParams = {
+      ...params,
+      includeDeleted: params?.includeDeleted ?? false
+    };
+    
+    console.log('📥 GET All params:', queryParams);
+
+    // ✅ FIX: Kirim queryParams, bukan params
+    const res = await api.get('/api/inspeksi-temuan-kpc', { 
+      params: queryParams  // ← INI YANG DIPERBAIKI
+    });
+    
+    console.log('📥 GET All response - total items:', res.data.data?.length);
+    
+    return {
+      data: res.data.data ?? [],
+      page: res.data.page ?? 1,
+      pageSize: res.data.pageSize ?? 15,
+      totalCount: res.data.totalCount ?? 0,
+      totalPages: res.data.totalPages ?? 1,
+    };
   },
 
   getHistory: async (params?: InspeksiQueryParams): Promise<PagedResponse<TemuanKPC>> => {
-    console.log('📡 Fetching history data');
+    const queryParams = {
+      ...params,
+      includeDeleted: true
+    };
+    
+    console.log('📚 GET History params:', queryParams);
+    
     const res = await api.get('/api/inspeksi-temuan-kpc/history', { 
-      params: { ...params, includeDeleted: true } 
+      params: queryParams 
     });
-    return res.data.data || res.data;
+    
+    console.log('📚 GET History response - total items:', res.data.data?.length);
+    
+    return {
+      data: res.data.data ?? [],
+      page: res.data.page ?? 1,
+      pageSize: res.data.pageSize ?? 15,
+      totalCount: res.data.totalCount ?? 0,
+      totalPages: res.data.totalPages ?? 1,
+    };
   },
 
   getById: async (id: number): Promise<TemuanKPC> => {
-    console.log('📡 Fetching inspeksi by ID:', id);
     const res = await api.get(`/api/inspeksi-temuan-kpc/${id}`);
-    return res.data.data || res.data;
+    return res.data.data ?? res.data;
   },
 
   create: async (data: {
@@ -104,8 +140,15 @@ export const inspeksiApi = {
       });
     }
 
+    console.log('📤 FormData entries:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.size} bytes)` : value);
+    }
+
     const res = await api.post('/api/inspeksi-temuan-kpc', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+      },
     });
     
     console.log('✅ Inspeksi created:', res.data);
@@ -113,7 +156,7 @@ export const inspeksiApi = {
   },
 
   update: async (id: number, data: {
-    followUpRef?: string;
+    noFollowUp?: string;
     perbaikanDilakukan?: string;
     tanggalPerbaikan?: string;
     tanggalSelesaiPerbaikan?: string;
@@ -126,7 +169,7 @@ export const inspeksiApi = {
     
     const formData = new FormData();
     
-    if (data.followUpRef) formData.append('followUpRef', data.followUpRef);
+    if (data.noFollowUp) formData.append('noFollowUp', data.noFollowUp);
     if (data.perbaikanDilakukan) formData.append('perbaikanDilakukan', data.perbaikanDilakukan);
     if (data.tanggalPerbaikan) formData.append('tanggalPerbaikan', data.tanggalPerbaikan);
     if (data.tanggalSelesaiPerbaikan) formData.append('tanggalSelesaiPerbaikan', data.tanggalSelesaiPerbaikan);
@@ -140,6 +183,11 @@ export const inspeksiApi = {
       });
     }
 
+    console.log('📝 FormData entries for update:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.size} bytes)` : value);
+    }
+
     const res = await api.patch(`/api/inspeksi-temuan-kpc/${id}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
@@ -148,11 +196,14 @@ export const inspeksiApi = {
     return res.data;
   },
 
-  delete: async (id: number): Promise<{ message: string }> => {
+  delete: async (id: number): Promise<DeleteResponse> => {
     console.log('🗑️ Deleting inspeksi:', id);
     const res = await api.delete(`/api/inspeksi-temuan-kpc/${id}`);
     console.log('✅ Inspeksi deleted:', res.data);
-    return res.data;
+    
+    return {
+      message: res.data.message || 'Temuan berhasil dihapus'
+    };
   },
 
   restore: async (id: number): Promise<{ message: string }> => {
@@ -173,7 +224,7 @@ export const inspeksiApi = {
     
     const response = await api.get('/api/inspeksi-temuan-kpc/export', {
       params,
-      responseType: 'blob',
+      responseType: 'blob', // ✅ FIX: responseType bukan responseType
     });
     
     const url = window.URL.createObjectURL(new Blob([response.data]));
