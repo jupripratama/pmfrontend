@@ -1,4 +1,4 @@
-// services/api.ts - UPDATED VERSION
+// services/api.ts - UPDATED VERSION WITH WORKING USER MANAGEMENT API
 import axios from 'axios';
 import { LoginRequest, User } from '../types/auth';
 import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
@@ -12,7 +12,7 @@ const getBaseURL = () => {
   return import.meta.env.VITE_API_URL || 'https://pm-mkn-production.up.railway.app';
 };
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 30000,
   withCredentials: false,
@@ -224,15 +224,40 @@ export const authApi = {
     return permissionsStr ? JSON.parse(permissionsStr) : [];
   },
 
-  register: async (userData: {
-    username: string;
-    email: string;
-    password: string;
-    fullName: string;
-  }): Promise<void> => {
-    const response = await api.post('/api/auth/register', userData);
-    return response.data;
-  },
+ 
+register: async (userData: {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<void> => {
+  console.log('📤 Sending register request:', {
+    username: userData.username,
+    email: userData.email,
+    fullName: userData.fullName,
+    // Don't log password
+  });
+
+  // ✅ ADD confirmPassword to match backend DTO
+  const requestData = {
+    username: userData.username,
+    email: userData.email,
+    password: userData.password,
+    confirmPassword: userData.password,  // ← TAMBAHKAN INI!
+    fullName: userData.fullName,
+  };
+
+  console.log('📦 Request payload (with confirmPassword):', {
+    ...requestData,
+    password: '***',
+    confirmPassword: '***'
+  });
+
+  const response = await api.post('/api/auth/register', requestData);
+  
+  console.log('✅ Register response:', response.data);
+  return response.data;
+},
 
   changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {
     await api.post('/api/auth/change-password', {
@@ -581,7 +606,7 @@ export const rolePermissionApi = {
   },
 };
 
-// ✅ UPDATED User Management APIs
+// ✅ UPDATED User Management APIs - WORKING VERSION
 export const userApi = {
   getAll: async (): Promise<User[]> => {
     console.log('📡 Fetching all users...');
@@ -616,5 +641,11 @@ export const userApi = {
     const response = await api.patch(`/api/users/${userId}/deactivate`);
     console.log('✅ User deactivated:', response.data.data);
     return response.data.data;
+  },
+
+  deleteUser: async (userId: number): Promise<void> => {
+    console.log('🗑️ Deleting user:', userId);
+    await api.delete(`/api/users/${userId}`);
+    console.log('✅ User deleted successfully');
   },
 };
