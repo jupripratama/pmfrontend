@@ -1,4 +1,4 @@
-// components/settings/PermissionsTab.tsx
+// components/settings/PermissionsTab.tsx - WITH GROUP SUPPORT
 import React, { useState, useEffect } from 'react';
 import { permissionApi } from '../../services/api';
 import { Permission } from '../../types/permission';
@@ -9,12 +9,14 @@ import {
   Save,
   X,
   Search,
+  Tag,
 } from 'lucide-react';
 
 export default function PermissionsTab() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterGroup, setFilterGroup] = useState('');
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{
@@ -25,6 +27,7 @@ export default function PermissionsTab() {
   const [formData, setFormData] = useState({
     permissionName: '',
     description: '',
+    group: '', // ✅ TAMBAHKAN GROUP
   });
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function PermissionsTab() {
         setMessage({ type: 'success', text: 'Permission berhasil ditambahkan' });
       }
 
-      setFormData({ permissionName: '', description: '' });
+      setFormData({ permissionName: '', description: '', group: '' });
       setIsAddingNew(false);
       setEditingId(null);
       fetchPermissions();
@@ -79,6 +82,7 @@ export default function PermissionsTab() {
     setFormData({
       permissionName: permission.permissionName,
       description: permission.description || '',
+      group: permission.group || '',
     });
     setIsAddingNew(true);
   };
@@ -104,14 +108,30 @@ export default function PermissionsTab() {
   const handleCancel = () => {
     setIsAddingNew(false);
     setEditingId(null);
-    setFormData({ permissionName: '', description: '' });
+    setFormData({ permissionName: '', description: '', group: '' });
   };
 
+  // ✅ GET UNIQUE GROUPS
+  const groups = [...new Set(permissions.map(p => p.group).filter(Boolean))].sort();
+
   const filteredPermissions = permissions.filter(
-    (p) =>
-      p.permissionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    (p) => {
+      const matchesSearch = p.permissionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesGroup = !filterGroup || p.group === filterGroup;
+      
+      return matchesSearch && matchesGroup;
+    }
   );
+
+  // ✅ GROUP BY GROUP
+  const groupedPermissions = filteredPermissions.reduce((acc, perm) => {
+    const group = perm.group || 'Uncategorized';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(perm);
+    return acc;
+  }, {} as Record<string, Permission[]>);
 
   if (loading) {
     return (
@@ -128,7 +148,7 @@ export default function PermissionsTab() {
         <div>
           <h2 className="text-xl font-bold text-gray-900">Manage Permissions</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Total: {permissions.length} permissions
+            Total: {permissions.length} permissions | Groups: {groups.length}
           </p>
         </div>
 
@@ -163,10 +183,10 @@ export default function PermissionsTab() {
             {editingId ? 'Edit Permission' : 'Add New Permission'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Permission Name *
+                  Permission Name * <span className="text-xs text-gray-500">(e.g., inspeksi.temuan-kpc.view)</span>
                 </label>
                 <input
                   type="text"
@@ -175,9 +195,30 @@ export default function PermissionsTab() {
                     setFormData({ ...formData, permissionName: e.target.value })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., ViewReports"
+                  placeholder="e.g., module.resource.action"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Group <span className="text-xs text-gray-500">(for organization)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.group}
+                  onChange={(e) =>
+                    setFormData({ ...formData, group: e.target.value })
+                  }
+                  list="groups-list"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Inspeksi KPC"
+                />
+                <datalist id="groups-list">
+                  {groups.map(g => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -217,8 +258,8 @@ export default function PermissionsTab() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search & Filter */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -229,80 +270,90 @@ export default function PermissionsTab() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+
+        <div className="relative">
+          <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <select
+            value={filterGroup}
+            onChange={(e) => setFilterGroup(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Groups</option>
+            {groups.map(group => (
+              <option key={group} value={group}>{group}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Permissions Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                ID
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                Permission Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                Description
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                Created At
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredPermissions.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  {searchTerm ? 'No permissions found' : 'No permissions yet'}
-                </td>
-              </tr>
-            ) : (
-              filteredPermissions.map((permission) => (
-                <tr key={permission.permissionId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {permission.permissionId}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-gray-900">
-                      {permission.permissionName}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {permission.description || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {permission.createdAt
-                      ? new Date(permission.createdAt).toLocaleDateString('id-ID')
-                      : '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center space-x-2">
-                      <button
-                        onClick={() => handleEdit(permission)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(permission.permissionId)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Permissions by Group */}
+      {Object.keys(groupedPermissions).length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          {searchTerm || filterGroup ? 'No permissions found' : 'No permissions yet'}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(groupedPermissions).sort().map(([group, perms]) => (
+            <div key={group} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                  {group}
+                  <span className="text-xs font-normal text-gray-500">({perms.length})</span>
+                </h3>
+              </div>
+
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Permission Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {perms.map((permission) => (
+                    <tr key={permission.permissionId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-mono text-gray-900">
+                          {permission.permissionName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {permission.description || '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleEdit(permission)}
+                            className="text-blue-600 hover:text-blue-800 p-1"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(permission.permissionId)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

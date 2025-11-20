@@ -13,6 +13,8 @@ import FleetStatisticsPage from './components/FleetStatisticsPage';
 import DocsPage from './components/DocsPage';
 import ProfilePage from './components/ProfilePage';
 import SettingsPage from './components/SettingsPage';
+import InspeksiKPCPage from './components/InspeksiKPCPage';
+
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
@@ -44,6 +46,7 @@ function AppContent() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/inspeksi-kpc" element={<InspeksiKPCPage />} />
       </Routes>
     </Layout>
   );
