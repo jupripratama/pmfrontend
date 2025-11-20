@@ -7,6 +7,7 @@ import {
   User, Mail, Shield, Calendar, Camera, Save, X, Eye, EyeOff, Lock,
   Trash2, CheckCircle, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
+import { formatDateTimeIndonesian, formatDetailDate } from '../utils/dateUtils';
 
 export default function ProfilePage() {
   const { user: contextUser, logout } = useAuth();
@@ -161,8 +162,7 @@ export default function ProfilePage() {
     }
   };
 
-  const formatDate = (date?: string | null) =>
-    date ? new Date(date).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+  const formatDate = (date?: string | null) => formatDetailDate(date);
 
   if (!currentUser) {
     return (
@@ -445,7 +445,7 @@ export default function ProfilePage() {
                 <Calendar className="w-6 h-6 text-gray-400" />
                 <div>
                   <p className="text-gray-500">Terdaftar sejak</p>
-                  <p className="font-semibold text-gray-900">{formatDate(currentUser.createdAt)}</p>
+                  <p className="font-semibold text-gray-900">{formatDetailDate(currentUser.createdAt)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -453,7 +453,7 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-gray-500">Login terakhir</p>
                   <p className="font-semibold text-gray-900">
-                    {currentUser.lastLogin ? formatDate(currentUser.lastLogin) : 'Belum pernah'}
+                    {currentUser.lastLogin ? formatDateTimeIndonesian(currentUser.lastLogin) : 'Belum pernah'}
                   </p>
                 </div>
               </div>
