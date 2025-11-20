@@ -1,8 +1,7 @@
-// components/Navbar.tsx - COMPLETE DYNAMIC PERMISSION-BASED MENU
+// components/Navbar.tsx - FIXED VERSION (NO INFINITE LOOP)
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { authApi } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import {
@@ -31,8 +30,8 @@ interface NavItem {
   path: string;
   icon: any;
   id: string;
-  permission?: string; // ✅ Permission name dari database
-  forAll?: boolean;    // ✅ Menu untuk semua user
+  permission?: string;
+  forAll?: boolean;
 }
 
 export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
@@ -50,53 +49,8 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     setCurrentUser(authUser);
   }, [authUser]);
 
-  // === LISTEN LOCALSTORAGE ===
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const updatedUser = localStorage.getItem('user');
-      if (updatedUser) {
-        try {
-          const parsedUser = JSON.parse(updatedUser);
-          setCurrentUser(parsedUser);
-        } catch (error) {
-          console.error('Error parsing user from localStorage:', error);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(() => {
-      const storageUser = localStorage.getItem('user');
-      if (storageUser) {
-        try {
-          const parsedStorageUser = JSON.parse(storageUser);
-          if (JSON.stringify(parsedStorageUser) !== JSON.stringify(currentUser)) {
-            setCurrentUser(parsedStorageUser);
-          }
-        } catch (error) {
-          console.error('Error parsing user from localStorage:', error);
-        }
-      }
-    }, 1000);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [currentUser]);
-
-  // === REFRESH PROFILE ON MOUNT ===
-  useEffect(() => {
-    const refreshUserData = async () => {
-      try {
-        const freshUserData = await authApi.getProfile();
-        setCurrentUser(freshUserData);
-      } catch (error) {
-        console.error('Failed to refresh user data:', error);
-      }
-    };
-    refreshUserData();
-  }, []);
+  // ❌ REMOVED INFINITE LOOP - Tidak perlu refresh terus-terusan
+  // Cukup listen dari AuthContext aja
 
   // === CLICK OUTSIDE ===
   useEffect(() => {
@@ -112,7 +66,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // === GET INITIALS ===
   const getUserInitials = () => {
     if (!currentUser?.fullName) return 'U';
     const names = currentUser.fullName.split(' ');
@@ -122,7 +75,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     return names[0][0].toUpperCase();
   };
 
-  // ✅ === PERMISSION CHECKER - DYNAMIC ===
   const hasPermission = (permission: string): boolean => {
     const permissions = localStorage.getItem('permissions');
     if (!permissions) return false;
@@ -135,81 +87,74 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     }
   };
 
-  // ✅ === DEFINE NAV ITEMS - PERMISSION-BASED ===
   const navItems: NavItem[] = [
     {
       name: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
       id: 'dashboard',
-      forAll: true, // Semua user bisa lihat
-    },
-    {
-      name: 'Fleet Statistics',
-      path: '/fleet-statistics',
-      icon: TrendingUp,
-      id: 'fleet-statistics',
-      permission: 'call-record.view', // Butuh permission ini
+      forAll: false,
+      permission: 'dashboard.view',
     },
     {
       name: 'Docs',
       path: '/docs',
       icon: BookOpen,
       id: 'docs',
-      forAll: true, // Semua user bisa lihat
+      forAll: false,
+      permission: 'docs.view',
     },
     {
       name: 'Inspeksi KPC',
       path: '/inspeksi-kpc',
       icon: ClipboardList,
       id: 'inspeksi-kpc',
-      permission: 'inspeksi.temuan-kpc.view', // ✅ DYNAMIC PERMISSION
+      permission: 'inspeksi.temuan-kpc.view',
     },
-    {
-      name: 'Settings',
-      path: '/settings',
-      icon: Settings,
-      id: 'settings',
-      permission: 'role.view', // Hanya yang punya permission ini (Super Admin)
+     {
+      name: 'Fleet Statistics',
+      path: '/fleet-statistics',
+      icon: TrendingUp,
+      id: 'fleet-statistics',
+      permission: 'callrecord.view',
     },
   ];
 
-  // ✅ === CALL RECORDS SUBMENU - PERMISSION-BASED ===
   const callRecordsMenu: NavItem[] = [
     {
       name: 'View Records',
       path: '/callrecords',
       icon: Phone,
       id: 'callrecords',
-      permission: 'call-record.view',
+      permission: 'callrecord.view',
     },
     {
       name: 'Upload CSV',
       path: '/upload',
       icon: Upload,
       id: 'upload',
-      permission: 'call-record.import',
+      permission: 'callrecord.import',
     },
     {
       name: 'Export Data',
       path: '/export',
       icon: Download,
       id: 'export',
-      permission: 'call-record.export',
+      permission: 'callrecord.view-any',
     },
   ];
 
-  // ✅ === FILTER MENU BERDASARKAN PERMISSION ===
+  const settingsMenuItem: NavItem = {
+    name: 'Settings',
+    path: '/settings',
+    icon: Settings,
+    id: 'settings',
+    permission: 'role.view',
+  };
+
   const filteredNavItems = navItems.filter(item => {
-    // Jika forAll = true, tampilkan untuk semua
     if (item.forAll) return true;
-    
-    // Jika ada permission requirement, cek apakah user punya
-    if (item.permission) {
-      return hasPermission(item.permission);
-    }
-    
-    // Default: hide
+    if (item.permission) return hasPermission(item.permission);
     return false;
   });
 
@@ -218,15 +163,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
     if (item.permission) return hasPermission(item.permission);
     return false;
   });
-
-  // ✅ DEBUG LOGS (Helpful untuk troubleshooting)
-  useEffect(() => {
-    const permissions = localStorage.getItem('permissions');
-    console.log('👤 Current User:', currentUser?.fullName, '|', currentUser?.roleName);
-    console.log('🔑 User Permissions:', permissions ? JSON.parse(permissions) : []);
-    console.log('📋 Visible Nav Items:', filteredNavItems.map(i => i.name));
-    console.log('📞 Visible Call Records:', filteredCallRecords.map(i => i.name));
-  }, [currentUser, filteredNavItems, filteredCallRecords]);
 
   const handleLogout = () => {
     logout();
@@ -257,7 +193,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-2">
-            {/* Main Nav Items */}
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -279,7 +214,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               );
             })}
 
-            {/* Call Records Dropdown - Only if user has any call record permissions */}
             {filteredCallRecords.length > 0 && (
               <div className="relative" ref={mobileDropdownRef}>
                 <button
@@ -325,11 +259,27 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 </AnimatePresence>
               </div>
             )}
+
+            {hasPermission(settingsMenuItem.permission!) && (
+              <Link
+                to={settingsMenuItem.path}
+                onClick={() => setActiveTab(settingsMenuItem.id)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  location.pathname === settingsMenuItem.path
+                    ? 'bg-white/25 text-white shadow-lg backdrop-blur-lg'
+                    : 'text-white/80 hover:bg-white/15 hover:text-white'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </Link>
+            )}
+
           </div>
 
-          {/* Profile + Mobile Menu Button */}
+          {/* Profile + Mobile */}
           <div className="flex items-center space-x-3">
-            {/* Desktop Profile Dropdown */}
+            {/* Desktop Profile */}
             <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -361,7 +311,6 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Profile Dropdown */}
               <AnimatePresence>
                 {isProfileOpen && (
                   <motion.div
@@ -487,7 +436,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   );
                 })}
 
-                {/* Call Records Section */}
+                {/* Call Records */}
                 {filteredCallRecords.length > 0 && (
                   <div className="pt-2 border-t border-gray-200">
                     <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Call Records</p>
