@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { inspeksiApi, TemuanKPC, InspeksiQueryParams } from '../services/inspeksiApi';
 import { format, parseISO, isValid } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-
 import { 
   Plus, Edit, Trash2, X, Check, AlertCircle, Download, 
   Filter, Search, Camera, Clock, CheckCircle, ChevronDown,
@@ -12,6 +11,8 @@ import {
   ClipboardList, Archive, RotateCcw, AlertTriangle, Eye, Trash,
   Upload, Move
 } from 'lucide-react';
+import { id } from 'date-fns/locale';
+import { formatCompactDate, formatDateTime } from '../utils/dateUtils';
 
 // Enhanced Image Upload Component with Drag & Drop
 interface ImageUploadZoneProps {
@@ -275,25 +276,29 @@ export default function InspeksiKPCPage() {
 
   // Helper function untuk format tanggal dengan safety check
   const formatDateSafe = (dateString: string | undefined, formatStr: string = 'dd/MM/yyyy'): string => {
-    if (!dateString || dateString === '-') return '-';
+  if (!dateString || dateString === '-') return '-';
+  
+  try {
+    const utcDate = new Date(dateString);
     
-    try {
-      const date = parseISO(dateString);
-      if (isValid(date)) {
-        return format(date, formatStr);
-      }
-      
-      const fallbackDate = new Date(dateString);
-      if (isValid(fallbackDate)) {
-        return format(fallbackDate, formatStr);
-      }
-      
-      return '-';
-    } catch (error) {
-      console.warn('Invalid date format:', dateString, error);
-      return '-';
+    // Convert to WIB
+    const wibDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+    
+    if (isNaN(wibDate.getTime())) return '-';
+    
+    // Format sesuai parameter
+    if (formatStr === 'dd/MM/yyyy') {
+      return format(wibDate, 'dd/MM/yyyy');
+    } else if (formatStr === 'dd MMM yyyy') {
+      return format(wibDate, 'dd MMM yyyy', { locale: id }); // Pastikan import { id } from 'date-fns/locale'
+    } else {
+      return format(wibDate, formatStr);
     }
-  };
+  } catch (error) {
+    console.warn('Invalid date format:', dateString, error);
+    return '-';
+  }
+};
 
   useEffect(() => {
     loadData();
@@ -768,7 +773,7 @@ export default function InspeksiKPCPage() {
           className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
         >
           <Download className="w-4 h-4" />
-          Export dengan Gambar
+          Export to Excel
         </button>
           
           <button
@@ -863,7 +868,7 @@ export default function InspeksiKPCPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatDateSafe(item.tanggalTemuan)}
+                      {formatCompactDate(item.tanggalTemuan)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.fotoTemuanUrls && item.fotoTemuanUrls.length > 0 ? (
@@ -910,7 +915,7 @@ export default function InspeksiKPCPage() {
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <div>{item.createdByName}</div>
                       <div className="text-xs text-gray-500">
-                        {formatDateSafe(item.createdAt, 'dd MMM yyyy HH:mm')}
+                          {formatDateTime(item.createdAt)}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">

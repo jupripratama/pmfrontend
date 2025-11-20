@@ -1,10 +1,10 @@
-// App.tsx - UPDATE
-import React, { useState } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// App.tsx - FIXED VERSION WITH PROPER PERMISSION CHECK
+import React, { useState, useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
-import Register from './components/Register'; // ✅ NEW
+import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import CallRecordsPage from './components/CallRecordsPage';
 import UploadPage from './components/UploadPage';
@@ -15,6 +15,46 @@ import ProfilePage from './components/ProfilePage';
 import SettingsPage from './components/SettingsPage';
 import InspeksiKPCPage from './components/InspeksiKPCPage';
 
+// ✅ HELPER: CEK PERMISSION DARI LOCALSTORAGE
+function hasPermission(permission: string): boolean {
+  const permissionsStr = localStorage.getItem('permissions');
+  if (!permissionsStr) return false;
+  
+  try {
+    const permissions: string[] = JSON.parse(permissionsStr);
+    return permissions.includes(permission);
+  } catch {
+    return false;
+  }
+}
+
+// ✅ FIXED: PRIORITY ROUTE BERDASARKAN PERMISSION YANG ADA
+function getDefaultRoute(): string {
+  // Priority order based on permission availability
+  if (hasPermission('dashboard.view')) return '/dashboard';
+  if (hasPermission('inspeksi.temuan-kpc.view')) return '/inspeksi-kpc';
+  if (hasPermission('docs.view')) return '/docs';
+  if (hasPermission('callrecord.view')) return '/callrecords';
+  
+  // Fallback: kalau tidak ada permission apapun, ke profile
+  return '/profile';
+}
+
+function DefaultRoute() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const route = getDefaultRoute();
+    console.log('🔀 Redirecting to default route:', route);
+    navigate(route, { replace: true });
+  }, [navigate]);
+  
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, isLoading } = useAuth();
@@ -30,23 +70,110 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   return user ? children : <Navigate to="/" replace />;
 }
 
+// ✅ ROUTE GUARD: CEK PERMISSION SEBELUM RENDER PAGE
+function PermissionGuard({ 
+  permission, 
+  children 
+}: { 
+  permission: string; 
+  children: JSX.Element 
+}) {
+  const hasAccess = hasPermission(permission);
+  
+  if (!hasAccess) {
+    console.warn(`⚠️ Access denied to route requiring: ${permission}`);
+    return <Navigate to={getDefaultRoute()} replace />;
+  }
+  
+  return children;
+}
+
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       <Routes>
-        <Route path="/dashboard" element={<Dashboard setActiveTab={setActiveTab} />} />
-        <Route path="/callrecords" element={<CallRecordsPage />} />
-        <Route path="/upload" element={<UploadPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
-        <Route path="/export" element={<ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />} />
-        <Route path="/fleet-statistics" element={<FleetStatisticsPage />} />
-        <Route path="/docs" element={<DocsPage setActiveTab={setActiveTab} />} />
+        <Route path="/" element={<DefaultRoute />} />
+        
+        {/* ✅ PROTECTED ROUTES WITH PERMISSION CHECK */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <PermissionGuard permission="dashboard.view">
+              <Dashboard setActiveTab={setActiveTab} />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/inspeksi-kpc" 
+          element={
+            <PermissionGuard permission="inspeksi.temuan-kpc.view">
+              <InspeksiKPCPage />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/docs" 
+          element={
+            <PermissionGuard permission="docs.view">
+              <DocsPage setActiveTab={setActiveTab} />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/callrecords" 
+          element={
+            <PermissionGuard permission="callrecord.view">
+              <CallRecordsPage />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/upload" 
+          element={
+            <PermissionGuard permission="callrecord.import">
+              <UploadPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/export" 
+          element={
+            <PermissionGuard permission="callrecord.view-any">
+              <ExportPage setActiveTab={setActiveTab} onBack={() => setActiveTab('dashboard')} />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/fleet-statistics" 
+          element={
+            <PermissionGuard permission="callrecord.view">
+              <FleetStatisticsPage />
+            </PermissionGuard>
+          } 
+        />
+        
+        <Route 
+          path="/settings" 
+          element={
+            <PermissionGuard permission="role.view">
+              <SettingsPage />
+            </PermissionGuard>
+          } 
+        />
+        
+        {/* ✅ PROFILE SELALU ACCESSIBLE */}
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/inspeksi-kpc" element={<InspeksiKPCPage />} />
+        
+        {/* ✅ CATCH-ALL: REDIRECT KE DEFAULT ROUTE */}
+        <Route path="*" element={<DefaultRoute />} />
       </Routes>
     </Layout>
   );
@@ -66,7 +193,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
-      <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" replace />} /> {/* ✅ NEW */}
+      <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" replace />} />
       <Route path="/*" element={user ? <AppContent /> : <Navigate to="/" replace />} />
     </Routes>
   );
