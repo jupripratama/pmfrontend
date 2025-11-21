@@ -1,4 +1,4 @@
-// src/components/InspeksiKPCPage.tsx - ENHANCED WITH DRAG-DROP & MULTI-IMAGE
+// src/components/InspeksiKPCPage.tsx - FINAL FIXED VERSION
 import React, { useState, useEffect, useRef, DragEvent } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -6,7 +6,7 @@ import {
   TemuanKPC,
   InspeksiQueryParams,
 } from "../services/inspeksiApi";
-import { format, parseISO, isValid } from "date-fns";
+import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -16,31 +16,27 @@ import {
   Check,
   AlertCircle,
   Download,
-  Filter,
   Search,
   Camera,
-  Clock,
   CheckCircle,
   ChevronDown,
-  FileText,
+  ClipboardList,
+  Archive,
+  RotateCcw,
+  Eye,
+  Upload,
   MapPin,
   Calendar,
   User,
   Wrench,
-  Image as ImageIcon,
-  ClipboardList,
-  Archive,
-  RotateCcw,
-  AlertTriangle,
-  Eye,
+  RefreshCw,
   Trash,
-  Upload,
-  Move,
+  AlertTriangle,
 } from "lucide-react";
 import { id } from "date-fns/locale";
 import { formatCompactDate, formatDateTime } from "../utils/dateUtils";
 
-// Enhanced Image Upload Component with Drag & Drop
+// [ImageUploadZone component stays the same - paste dari sebelumnya]
 interface ImageUploadZoneProps {
   label: string;
   files: File[];
@@ -121,7 +117,6 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
         {label}
       </label>
 
-      {/* Drag & Drop Zone */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -177,7 +172,6 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
         </div>
       </div>
 
-      {/* Existing Photos Grid */}
       {existingPhotos.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium text-gray-600 mb-2">
@@ -212,7 +206,6 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
         </div>
       )}
 
-      {/* New Images Preview Grid */}
       {previews.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium text-gray-600 mb-2">
@@ -251,7 +244,6 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
         </div>
       )}
 
-      {/* File Info */}
       {files.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
           {files.map((file, idx) => (
@@ -267,6 +259,13 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
 
 export default function InspeksiKPCPage() {
   const { user } = useAuth();
+
+  // ✅ ROLE MANAGEMENT - EDIT DI SINI KALAU MAU GANTI ROLE
+  const isAdmin =
+    user?.roleName === "Super Admin" || user?.roleName === "Admin";
+  const isSupvKPC = user?.roleName === "SupvKPC";
+  const canCreateEdit = isAdmin;
+  const canUpdate = isAdmin || isSupvKPC;
 
   // State untuk data
   const [data, setData] = useState<TemuanKPC[]>([]);
@@ -290,7 +289,9 @@ export default function InspeksiKPCPage() {
 
   // State untuk modal
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | "update">(
+    "create"
+  );
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -310,50 +311,39 @@ export default function InspeksiKPCPage() {
     noFollowUp: "",
     picPelaksana: "",
     keterangan: "",
-    // Update fields
     perbaikanDilakukan: "",
     tanggalPerbaikan: "",
     tanggalSelesaiPerbaikan: "",
     status: "Open" as "Open" | "In Progress" | "Closed" | "Rejected",
   });
 
-  // State untuk upload foto dengan preview
+  // State untuk upload foto
   const [fotoTemuanFiles, setFotoTemuanFiles] = useState<File[]>([]);
   const [fotoHasilFiles, setFotoHasilFiles] = useState<File[]>([]);
   const [fotoTemuanPreviews, setFotoTemuanPreviews] = useState<string[]>([]);
   const [fotoHasilPreviews, setFotoHasilPreviews] = useState<string[]>([]);
-
-  // State untuk existing photos (dari server)
   const [existingFotoTemuan, setExistingFotoTemuan] = useState<string[]>([]);
   const [existingFotoHasil, setExistingFotoHasil] = useState<string[]>([]);
 
-  // Helper function untuk format tanggal dengan safety check
   const formatDateSafe = (
     dateString: string | undefined,
     formatStr: string = "dd/MM/yyyy"
   ): string => {
     if (!dateString || dateString === "-") return "-";
-
     try {
       const utcDate = new Date(dateString);
-
-      // Convert to WIB
       const wibDate = new Date(
         utcDate.toLocaleString("en-US", { timeZone: "Asia/Makassar" })
       );
-
       if (isNaN(wibDate.getTime())) return "-";
-
-      // Format sesuai parameter
       if (formatStr === "dd/MM/yyyy") {
         return format(wibDate, "dd/MM/yyyy");
       } else if (formatStr === "dd MMM yyyy") {
-        return format(wibDate, "dd MMM yyyy", { locale: id }); // Pastikan import { id } from 'date-fns/locale'
+        return format(wibDate, "dd MMM yyyy", { locale: id });
       } else {
         return format(wibDate, formatStr);
       }
     } catch (error) {
-      console.warn("Invalid date format:", dateString, error);
       return "-";
     }
   };
@@ -368,6 +358,47 @@ export default function InspeksiKPCPage() {
     endDate,
     showHistory,
   ]);
+
+  useEffect(() => {
+    // Skip auto-refresh jika modal terbuka atau sedang submit
+    if (isModalOpen || isSubmitting) {
+      return;
+    }
+
+    // Auto-refresh setiap 30 detik (lebih jarang untuk avoid race condition)
+    const intervalId = setInterval(() => {
+      console.log("🔄 Auto-refreshing data (silent mode)...");
+      loadData();
+    }, 30000); // ✅ 30 seconds instead of 15
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    currentPage,
+    selectedRuang,
+    selectedStatus,
+    startDate,
+    endDate,
+    showHistory,
+    isModalOpen,
+    isSubmitting,
+  ]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !isModalOpen && !isSubmitting) {
+        console.log("👁️ Tab became visible, refreshing data...");
+        loadData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isModalOpen, isSubmitting]);
 
   useEffect(() => {
     if (error) {
@@ -396,9 +427,18 @@ export default function InspeksiKPCPage() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
+      // ✅ ADD TIMESTAMP TO PREVENT CACHING
+      const timestamp = new Date().getTime();
+      console.log(`🔄 Loading data at ${timestamp}`);
+
       const response = showHistory
         ? await inspeksiApi.getHistory(params)
         : await inspeksiApi.getAll(params);
+
+      console.log(`✅ Data loaded at ${timestamp}:`, {
+        total: response.totalCount,
+        dataLength: response.data.length,
+      });
 
       setData(response.data);
       setTotalPages(response.totalPages);
@@ -425,25 +465,16 @@ export default function InspeksiKPCPage() {
 
   const ruangList = [...new Set(data.map((d) => d.ruang))].sort();
 
-  // Enhanced file handlers with previews
   const handleFotoTemuanChange = (files: File[]) => {
     setFotoTemuanFiles(files);
-
-    // Clean up old previews
     fotoTemuanPreviews.forEach((url) => URL.revokeObjectURL(url));
-
-    // Create new previews
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setFotoTemuanPreviews(newPreviews);
   };
 
   const handleFotoHasilChange = (files: File[]) => {
     setFotoHasilFiles(files);
-
-    // Clean up old previews
     fotoHasilPreviews.forEach((url) => URL.revokeObjectURL(url));
-
-    // Create new previews
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setFotoHasilPreviews(newPreviews);
   };
@@ -451,10 +482,7 @@ export default function InspeksiKPCPage() {
   const removeFotoTemuanPreview = (index: number) => {
     const newFiles = fotoTemuanFiles.filter((_, i) => i !== index);
     const newPreviews = fotoTemuanPreviews.filter((_, i) => i !== index);
-
-    // Clean up removed preview URL
     URL.revokeObjectURL(fotoTemuanPreviews[index]);
-
     setFotoTemuanFiles(newFiles);
     setFotoTemuanPreviews(newPreviews);
   };
@@ -462,10 +490,7 @@ export default function InspeksiKPCPage() {
   const removeFotoHasilPreview = (index: number) => {
     const newFiles = fotoHasilFiles.filter((_, i) => i !== index);
     const newPreviews = fotoHasilPreviews.filter((_, i) => i !== index);
-
-    // Clean up removed preview URL
     URL.revokeObjectURL(fotoHasilPreviews[index]);
-
     setFotoHasilFiles(newFiles);
     setFotoHasilPreviews(newPreviews);
   };
@@ -487,28 +512,7 @@ export default function InspeksiKPCPage() {
     setSuccess("");
 
     try {
-      if (isEditMode && editingId) {
-        await inspeksiApi.update(editingId, {
-          ruang: form.ruang,
-          temuan: form.temuan,
-          kategoriTemuan: form.kategoriTemuan || undefined,
-          inspector: form.inspector || undefined,
-          severity: form.severity,
-          tanggalTemuan: form.tanggalTemuan,
-          noFollowUp: form.noFollowUp || undefined,
-          perbaikanDilakukan: form.perbaikanDilakukan || undefined,
-          tanggalPerbaikan: form.tanggalPerbaikan || undefined,
-          tanggalSelesaiPerbaikan: form.tanggalSelesaiPerbaikan || undefined,
-          picPelaksana: form.picPelaksana || undefined,
-          status: form.status,
-          keterangan: form.keterangan || undefined,
-          fotoTemuanFiles:
-            fotoTemuanFiles.length > 0 ? fotoTemuanFiles : undefined,
-          fotoHasilFiles:
-            fotoHasilFiles.length > 0 ? fotoHasilFiles : undefined,
-        });
-        setSuccess("Temuan berhasil diperbarui");
-      } else {
+      if (modalMode === "create") {
         const createData = {
           ruang: form.ruang,
           temuan: form.temuan,
@@ -523,23 +527,63 @@ export default function InspeksiKPCPage() {
             fotoTemuanFiles.length > 0 ? fotoTemuanFiles : undefined,
         };
 
-        console.log("📤 Sending create data:", createData);
+        console.log("📤 CREATE - Sending data:", createData);
+        await inspeksiApi.create(createData);
+        setSuccess("Temuan berhasil dibuat");
+      } else if (modalMode === "edit" && editingId) {
+        const editData = {
+          ruang: form.ruang,
+          temuan: form.temuan,
+          kategoriTemuan: form.kategoriTemuan || undefined,
+          inspector: form.inspector || undefined,
+          severity: form.severity,
+          tanggalTemuan: form.tanggalTemuan,
+          noFollowUp: form.noFollowUp || undefined,
+          picPelaksana: form.picPelaksana || undefined,
+          keterangan: form.keterangan || undefined,
+          fotoTemuanFiles:
+            fotoTemuanFiles.length > 0 ? fotoTemuanFiles : undefined,
+        };
 
-        const result = await inspeksiApi.create(createData);
-        setSuccess(result.message || "Temuan berhasil dibuat");
+        console.log("📤 EDIT - Sending data:", editData);
+        await inspeksiApi.update(editingId, editData);
+        setSuccess("Detail temuan berhasil diperbarui");
+      } else if (modalMode === "update" && editingId) {
+        // ✅ CRITICAL FIX: SEND ALL FIELDS!
+        const updateData = {
+          // ✅ KIRIM FIELD WALAUPUN KOSONG
+          noFollowUp: form.noFollowUp || undefined, // undefined = tidak diubah, "" = dikosongkan
+          picPelaksana: form.picPelaksana || undefined,
+          perbaikanDilakukan: form.perbaikanDilakukan || undefined,
+          tanggalPerbaikan: form.tanggalPerbaikan || undefined,
+          tanggalSelesaiPerbaikan: form.tanggalSelesaiPerbaikan || undefined,
+          status: form.status,
+          keterangan: form.keterangan || undefined,
+          fotoHasilFiles:
+            fotoHasilFiles.length > 0 ? fotoHasilFiles : undefined,
+        };
+
+        console.log("📤 UPDATE - Sending data:", updateData);
+        const response = await inspeksiApi.update(editingId, updateData);
+        console.log("✅ UPDATE - Response:", response);
+        setSuccess("Perbaikan berhasil diupdate");
       }
 
+      // ✅ CLOSE MODAL FIRST
       closeModal();
-      loadData();
+
+      // ✅ ADD DELAY BEFORE RELOAD
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // ✅ THEN RELOAD DATA
+      await loadData();
     } catch (err: any) {
       console.error("❌ Error submitting:", err);
-
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.errors?.join(", ") ||
         err.message ||
         "Gagal menyimpan data";
-
       setError(`Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
@@ -559,6 +603,36 @@ export default function InspeksiKPCPage() {
     }
   };
 
+  // ✅ NEW: DELETE PERMANEN HANDLER
+  const handleDeletePermanent = async (id: number, ruang: string) => {
+    if (
+      !confirm(
+        `⚠️ PERHATIAN!\n\nApakah Anda yakin ingin menghapus PERMANEN temuan di "${ruang}"?\n\nData yang dihapus permanen TIDAK BISA dikembalikan!\n\nKlik OK untuk melanjutkan.`
+      )
+    ) {
+      return;
+    }
+
+    // Double confirmation
+    if (
+      !confirm(
+        "Konfirmasi terakhir: Data akan dihapus PERMANEN dan tidak bisa dikembalikan. Lanjutkan?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      // Call permanent delete endpoint
+      await inspeksiApi.deletePermanent(id);
+      setSuccess("Temuan berhasil dihapus permanen");
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Gagal menghapus data permanen");
+    }
+  };
+
   const handleRestore = async (id: number) => {
     if (!confirm("Yakin ingin mengembalikan temuan ini?")) return;
 
@@ -573,7 +647,7 @@ export default function InspeksiKPCPage() {
   };
 
   const openCreateModal = () => {
-    setIsEditMode(false);
+    setModalMode("create");
     setEditingId(null);
     setForm({
       ruang: "",
@@ -604,34 +678,63 @@ export default function InspeksiKPCPage() {
       setLoading(true);
       const item = await inspeksiApi.getById(id);
 
-      const validatedItem = {
-        ...item,
-        tanggalTemuan: item.tanggalTemuan || format(new Date(), "yyyy-MM-dd"),
-        tanggalPerbaikan: item.tanggalPerbaikan || "",
-        tanggalSelesaiPerbaikan: item.tanggalSelesaiPerbaikan || "",
-      };
-
-      setIsEditMode(true);
+      setModalMode("edit");
       setEditingId(id);
       setForm({
-        ruang: validatedItem.ruang,
-        temuan: validatedItem.temuan,
-        kategoriTemuan: validatedItem.kategoriTemuan || "",
-        inspector: validatedItem.inspector || "",
-        severity: validatedItem.severity,
-        tanggalTemuan: validatedItem.tanggalTemuan,
-        noFollowUp: validatedItem.noFollowUp || "",
-        picPelaksana: validatedItem.picPelaksana || "",
-        keterangan: validatedItem.keterangan || "",
-        perbaikanDilakukan: validatedItem.perbaikanDilakukan || "",
-        tanggalPerbaikan: validatedItem.tanggalPerbaikan || "",
-        tanggalSelesaiPerbaikan: validatedItem.tanggalSelesaiPerbaikan || "",
-        status: validatedItem.status,
+        ruang: item.ruang,
+        temuan: item.temuan,
+        kategoriTemuan: item.kategoriTemuan || "",
+        inspector: item.inspector || "",
+        severity: item.severity,
+        tanggalTemuan: item.tanggalTemuan || format(new Date(), "yyyy-MM-dd"),
+        noFollowUp: item.noFollowUp || "",
+        picPelaksana: item.picPelaksana || "",
+        keterangan: item.keterangan || "",
+        perbaikanDilakukan: item.perbaikanDilakukan || "",
+        tanggalPerbaikan: item.tanggalPerbaikan || "",
+        tanggalSelesaiPerbaikan: item.tanggalSelesaiPerbaikan || "",
+        status: item.status,
       });
 
-      setExistingFotoTemuan(validatedItem.fotoTemuanUrls || []);
-      setExistingFotoHasil(validatedItem.fotoHasilUrls || []);
+      setExistingFotoTemuan(item.fotoTemuanUrls || []);
+      setExistingFotoHasil(item.fotoHasilUrls || []);
+      setFotoTemuanFiles([]);
+      setFotoHasilFiles([]);
+      setFotoTemuanPreviews([]);
+      setFotoHasilPreviews([]);
+      setIsModalOpen(true);
+    } catch (err: any) {
+      setError("Gagal memuat detail temuan");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const openUpdateModal = async (id: number) => {
+    try {
+      setLoading(true);
+      const item = await inspeksiApi.getById(id);
+
+      setModalMode("update");
+      setEditingId(id);
+      setForm({
+        ruang: item.ruang,
+        temuan: item.temuan,
+        kategoriTemuan: item.kategoriTemuan || "",
+        inspector: item.inspector || "",
+        severity: item.severity,
+        tanggalTemuan: item.tanggalTemuan || format(new Date(), "yyyy-MM-dd"),
+        noFollowUp: item.noFollowUp || "",
+        picPelaksana: item.picPelaksana || "",
+        keterangan: item.keterangan || "",
+        perbaikanDilakukan: item.perbaikanDilakukan || "",
+        tanggalPerbaikan: item.tanggalPerbaikan || "",
+        tanggalSelesaiPerbaikan: item.tanggalSelesaiPerbaikan || "",
+        status: item.status,
+      });
+
+      setExistingFotoTemuan(item.fotoTemuanUrls || []);
+      setExistingFotoHasil(item.fotoHasilUrls || []);
       setFotoTemuanFiles([]);
       setFotoHasilFiles([]);
       setFotoTemuanPreviews([]);
@@ -646,15 +749,12 @@ export default function InspeksiKPCPage() {
 
   const closeModal = () => {
     setIsModalOpen(false);
-    setIsEditMode(false);
+    setModalMode("create");
     setEditingId(null);
     setFotoTemuanFiles([]);
     setFotoHasilFiles([]);
-
-    // Cleanup preview URLs
     fotoTemuanPreviews.forEach((url) => URL.revokeObjectURL(url));
     fotoHasilPreviews.forEach((url) => URL.revokeObjectURL(url));
-
     setFotoTemuanPreviews([]);
     setFotoHasilPreviews([]);
     setExistingFotoTemuan([]);
@@ -675,6 +775,7 @@ export default function InspeksiKPCPage() {
       setError("Gagal export data dengan gambar");
     }
   };
+
   const clearFilters = () => {
     setSelectedRuang("");
     setSelectedStatus("");
@@ -714,20 +815,9 @@ export default function InspeksiKPCPage() {
     );
   }
 
-  if (!Array.isArray(data)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading data...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 max-w-full mx-auto">
-      {/* Header */}
+      {/* Header - sama seperti sebelumnya */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
           <ClipboardList className="w-8 h-8 text-blue-600" />
@@ -736,11 +826,13 @@ export default function InspeksiKPCPage() {
         <p className="text-gray-600 mt-1">
           {showHistory
             ? "Data temuan yang sudah dihapus"
-            : "Kelola temuan inspeksi per ruang"}
+            : canCreateEdit
+            ? "Kelola temuan inspeksi per ruang"
+            : "Update perbaikan temuan inspeksi"}
         </p>
       </div>
 
-      {/* Notifications */}
+      {/* Notifications - sama seperti sebelumnya */}
       <AnimatePresence>
         {error && (
           <motion.div
@@ -773,9 +865,8 @@ export default function InspeksiKPCPage() {
         )}
       </AnimatePresence>
 
-      {/* Filter & Actions */}
+      {/* Filters & Actions - sama seperti sebelumnya */}
       <div className="mb-6 space-y-4">
-        {/* Row 1: Filters */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -865,7 +956,6 @@ export default function InspeksiKPCPage() {
           </div>
         </div>
 
-        {/* Row 2: Actions */}
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => handleExportWithImages()}
@@ -908,7 +998,7 @@ export default function InspeksiKPCPage() {
             </button>
           )}
 
-          {!showHistory && (
+          {!showHistory && canCreateEdit && (
             <button
               onClick={openCreateModal}
               className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -919,23 +1009,12 @@ export default function InspeksiKPCPage() {
           )}
 
           <div className="text-sm text-gray-600">
-            {searchTerm ? (
-              <>
-                Hasil pencarian:{" "}
-                <span className="font-semibold">{filteredData.length}</span>{" "}
-                temuan
-              </>
-            ) : (
-              <>
-                Total: <span className="font-semibold">{totalCount}</span>{" "}
-                temuan
-              </>
-            )}
+            Total: <span className="font-semibold">{totalCount}</span> temuan
           </div>
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table dengan Action Buttons yang diperbaiki */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1090,31 +1169,71 @@ export default function InspeksiKPCPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         {showHistory ? (
-                          <button
-                            onClick={() => item.id && handleRestore(item.id)}
-                            className="text-green-600 hover:text-green-800"
-                            title="Restore"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
+                          <>
+                            {/* ✅ RESTORE BUTTON */}
+                            <button
+                              onClick={() => item.id && handleRestore(item.id)}
+                              className="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center gap-1 text-xs font-medium"
+                              title="Restore dari History"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Restore
+                            </button>
+
+                            {/* ✅ DELETE PERMANEN BUTTON (Admin only) */}
+                            {canCreateEdit && (
+                              <button
+                                onClick={() =>
+                                  item.id &&
+                                  handleDeletePermanent(item.id, item.ruang)
+                                }
+                                className="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-1 text-xs font-medium"
+                                title="Hapus Permanen (Tidak bisa dikembalikan!)"
+                              >
+                                <AlertTriangle className="w-3 h-3" />
+                                Hapus Permanen
+                              </button>
+                            )}
+                          </>
                         ) : (
                           <>
-                            <button
-                              onClick={() => item.id && openEditModal(item.id)}
-                              className="text-blue-600 hover:text-blue-800"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => item.id && handleDelete(item.id)}
-                              className="text-red-600 hover:text-red-800"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {canCreateEdit && (
+                              <button
+                                onClick={() =>
+                                  item.id && openEditModal(item.id)
+                                }
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1 text-xs font-medium"
+                                title="Edit Detail Temuan"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Edit
+                              </button>
+                            )}
+
+                            {canUpdate && (
+                              <button
+                                onClick={() =>
+                                  item.id && openUpdateModal(item.id)
+                                }
+                                className="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center gap-1 text-xs font-medium"
+                                title="Update Perbaikan"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                Update
+                              </button>
+                            )}
+
+                            {canCreateEdit && (
+                              <button
+                                onClick={() => item.id && handleDelete(item.id)}
+                                className="text-red-600 hover:text-red-800"
+                                title="Pindah ke History"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -1126,7 +1245,7 @@ export default function InspeksiKPCPage() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Pagination - sama seperti sebelumnya */}
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <div className="text-sm text-gray-600">
@@ -1154,7 +1273,7 @@ export default function InspeksiKPCPage() {
         )}
       </div>
 
-      {/* Enhanced Modal Form with Drag & Drop */}
+      {/* Enhanced Modal Form with Role-Based UI */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -1164,14 +1283,27 @@ export default function InspeksiKPCPage() {
               exit={{ opacity: 0, scale: 0.9 }}
               className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full my-8 overflow-hidden"
             >
+              {/* Modal Header */}
               <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  {isEditMode ? (
-                    <Edit className="w-5 h-5" />
-                  ) : (
-                    <Plus className="w-5 h-5" />
+                  {modalMode === "create" && (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      Tambah Temuan Baru
+                    </>
                   )}
-                  {isEditMode ? "Update Temuan" : "Tambah Temuan Baru"}
+                  {modalMode === "edit" && (
+                    <>
+                      <Edit className="w-5 h-5" />
+                      Edit Detail Temuan
+                    </>
+                  )}
+                  {modalMode === "update" && (
+                    <>
+                      <RefreshCw className="w-5 h-5" />
+                      Update Perbaikan
+                    </>
+                  )}
                 </h2>
                 <button
                   onClick={closeModal}
@@ -1185,9 +1317,17 @@ export default function InspeksiKPCPage() {
                 onSubmit={handleSubmit}
                 className="p-6 space-y-5 max-h-[75vh] overflow-y-auto"
               >
-                {!isEditMode ? (
-                  // CREATE MODE with Enhanced Image Upload
+                {/* ====================================== */}
+                {/* CREATE MODE */}
+                {/* ====================================== */}
+                {modalMode === "create" && (
                   <>
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
+                      <p className="text-sm text-blue-800 font-medium">
+                        📝 Form Laporan Temuan Baru
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
@@ -1343,7 +1483,6 @@ export default function InspeksiKPCPage() {
                       />
                     </div>
 
-                    {/* Enhanced Foto Temuan Upload with Drag & Drop */}
                     <ImageUploadZone
                       label="Foto Temuan (Multiple)"
                       files={fotoTemuanFiles}
@@ -1353,17 +1492,19 @@ export default function InspeksiKPCPage() {
                       iconColor="blue"
                     />
                   </>
-                ) : (
-                  // EDIT MODE with Enhanced Image Upload
+                )}
+
+                {/* ====================================== */}
+                {/* EDIT MODE */}
+                {/* ====================================== */}
+                {modalMode === "edit" && (
                   <>
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
-                      <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                        <ClipboardList className="w-5 h-5" />
-                        Informasi Temuan
-                      </h3>
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-4">
+                      <p className="text-sm text-orange-800 font-medium">
+                        ✏️ Edit Detail Temuan (Admin Only)
+                      </p>
                     </div>
 
-                    {/* ✅ EDITABLE FIELDS */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
@@ -1467,137 +1608,40 @@ export default function InspeksiKPCPage() {
                       </div>
                     </div>
 
-                    {/* Show existing foto temuan */}
-                    {existingFotoTemuan.length > 0 && (
-                      <div className="mt-3">
-                        <label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Foto Temuan Existing:
-                        </label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {existingFotoTemuan.map((url, index) => (
-                            <img
-                              key={index}
-                              src={url}
-                              alt={`Temuan ${index + 1}`}
-                              className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-75"
-                              onClick={() =>
-                                openImageGallery(existingFotoTemuan, index)
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                        <Wrench className="w-4 h-4" />
-                        Perbaikan yang Dilakukan
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={form.perbaikanDilakukan}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            perbaikanDilakukan: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-2 border rounded-lg resize-none"
-                        placeholder="Deskripsikan perbaikan yang telah dilakukan..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        No Follow Up
-                      </label>
-                      <input
-                        type="text"
-                        value={form.noFollowUp}
-                        onChange={(e) =>
-                          setForm({ ...form, noFollowUp: e.target.value })
-                        }
-                        className="w-full px-4 py-2 border rounded-lg"
-                        placeholder="Referensi follow up (email/nomor WR)"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                          <Calendar className="w-4 h-4" />
-                          Tanggal Perbaikan
-                        </label>
-                        <input
-                          type="date"
-                          value={form.tanggalPerbaikan}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              tanggalPerbaikan: e.target.value,
-                            })
-                          }
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          Tanggal Selesai
-                        </label>
-                        <input
-                          type="date"
-                          value={form.tanggalSelesaiPerbaikan}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              tanggalSelesaiPerbaikan: e.target.value,
-                            })
-                          }
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                      </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Status
+                          No Follow Up
                         </label>
-                        <select
-                          value={form.status}
+                        <input
+                          type="text"
+                          value={form.noFollowUp}
                           onChange={(e) =>
-                            setForm({ ...form, status: e.target.value as any })
+                            setForm({ ...form, noFollowUp: e.target.value })
                           }
                           className="w-full px-4 py-2 border rounded-lg"
-                        >
-                          <option value="Open">Open</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Closed">Closed</option>
-                          <option value="Rejected">Rejected</option>
-                        </select>
+                        />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                        <User className="w-4 h-4" />
-                        PIC Pelaksana
-                      </label>
-                      <input
-                        type="text"
-                        value={form.picPelaksana}
-                        onChange={(e) =>
-                          setForm({ ...form, picPelaksana: e.target.value })
-                        }
-                        className="w-full px-4 py-2 border rounded-lg"
-                        placeholder="Nama PIC atau Email"
-                      />
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                          <User className="w-4 h-4" />
+                          PIC Pelaksana
+                        </label>
+                        <input
+                          type="text"
+                          value={form.picPelaksana}
+                          onChange={(e) =>
+                            setForm({ ...form, picPelaksana: e.target.value })
+                          }
+                          className="w-full px-4 py-2 border rounded-lg"
+                        />
+                      </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Keterangan Update
+                        Keterangan
                       </label>
                       <textarea
                         rows={2}
@@ -1606,21 +1650,294 @@ export default function InspeksiKPCPage() {
                           setForm({ ...form, keterangan: e.target.value })
                         }
                         className="w-full px-4 py-2 border rounded-lg resize-none"
-                        placeholder="Catatan tambahan tentang update..."
                       />
                     </div>
 
-                    {/* Enhanced Foto Hasil Upload with Drag & Drop */}
+                    {existingFotoTemuan.length > 0 && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Foto Temuan Existing:
+                        </label>
+                        <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                          {existingFotoTemuan.map((url, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={url}
+                                alt={`Temuan ${index + 1}`}
+                                className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-75"
+                                onClick={() =>
+                                  openImageGallery(existingFotoTemuan, index)
+                                }
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeExistingFotoTemuan(index)}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <ImageUploadZone
-                      label="Foto Hasil Perbaikan (Multiple)"
-                      files={fotoHasilFiles}
-                      previews={fotoHasilPreviews}
-                      existingPhotos={existingFotoHasil}
-                      onFilesChange={handleFotoHasilChange}
-                      onRemovePreview={removeFotoHasilPreview}
-                      onRemoveExisting={removeExistingFotoHasil}
-                      iconColor="green"
+                      label="Tambah Foto Temuan Baru"
+                      files={fotoTemuanFiles}
+                      previews={fotoTemuanPreviews}
+                      onFilesChange={handleFotoTemuanChange}
+                      onRemovePreview={removeFotoTemuanPreview}
+                      iconColor="blue"
                     />
+                  </>
+                )}
+
+                {/* ====================================== */}
+                {/* UPDATE MODE - WITH NO FOLLOW UP & PIC */}
+                {/* ====================================== */}
+                {modalMode === "update" && (
+                  <>
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                      <p className="text-sm text-green-800 font-medium">
+                        🔄 Update Status Perbaikan
+                      </p>
+                    </div>
+
+                    {/* Show Temuan Info (Read-only) */}
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-3">
+                        📋 Info Temuan
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-600">Ruang:</span>
+                          <span className="ml-2 font-medium">{form.ruang}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Inspector:</span>
+                          <span className="ml-2 font-medium">
+                            {form.inspector || "-"}
+                          </span>
+                        </div>
+                        <div className="md:col-span-2">
+                          <span className="text-gray-600">Temuan:</span>
+                          <p className="mt-1 text-gray-900">{form.temuan}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Severity:</span>
+                          <span
+                            className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${
+                              form.severity === "Critical"
+                                ? "bg-red-100 text-red-800"
+                                : form.severity === "High"
+                                ? "bg-orange-100 text-orange-800"
+                                : form.severity === "Medium"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {form.severity}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Tanggal Temuan:</span>
+                          <span className="ml-2 font-medium">
+                            {formatDateSafe(form.tanggalTemuan, "dd MMM yyyy")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {existingFotoTemuan.length > 0 && (
+                        <div className="mt-3">
+                          <span className="text-gray-600 text-sm">
+                            Foto Temuan:
+                          </span>
+                          <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-2">
+                            {existingFotoTemuan.map((url, index) => (
+                              <img
+                                key={index}
+                                src={url}
+                                alt={`Temuan ${index + 1}`}
+                                className="w-full h-16 object-cover rounded border cursor-pointer hover:opacity-75"
+                                onClick={() =>
+                                  openImageGallery(existingFotoTemuan, index)
+                                }
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ✅ UPDATE PERBAIKAN FORM - WITH NO FOLLOW UP & PIC */}
+                    <div className="space-y-4 mt-6">
+                      {/* ✅ No Follow Up & PIC Pelaksana */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <AlertCircle className="w-4 h-4 text-blue-600" />
+                            No Follow Up
+                          </label>
+                          <input
+                            type="text"
+                            value={form.noFollowUp}
+                            onChange={(e) =>
+                              setForm({ ...form, noFollowUp: e.target.value })
+                            }
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                            placeholder="WR-2025-001 atau Email"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <User className="w-4 h-4 text-blue-600" />
+                            PIC Pelaksana
+                          </label>
+                          <input
+                            type="text"
+                            value={form.picPelaksana}
+                            onChange={(e) =>
+                              setForm({ ...form, picPelaksana: e.target.value })
+                            }
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                            placeholder="Nama PIC atau Email"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                          <Wrench className="w-4 h-4 text-green-600" />
+                          Perbaikan yang Dilakukan
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={form.perbaikanDilakukan}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              perbaikanDilakukan: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-green-500"
+                          placeholder="Deskripsikan perbaikan yang telah dilakukan..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <Calendar className="w-4 h-4" />
+                            Tanggal Perbaikan
+                          </label>
+                          <input
+                            type="date"
+                            value={form.tanggalPerbaikan}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                tanggalPerbaikan: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            Tanggal Selesai
+                          </label>
+                          <input
+                            type="date"
+                            value={form.tanggalSelesaiPerbaikan}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                tanggalSelesaiPerbaikan: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Status
+                          </label>
+                          <select
+                            value={form.status}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                status: e.target.value as any,
+                              })
+                            }
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Closed">Closed</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Keterangan Update
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={form.keterangan}
+                          onChange={(e) =>
+                            setForm({ ...form, keterangan: e.target.value })
+                          }
+                          className="w-full px-4 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-green-500"
+                          placeholder="Catatan tambahan tentang perbaikan..."
+                        />
+                      </div>
+
+                      {existingFotoHasil.length > 0 && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Foto Hasil Existing:
+                          </label>
+                          <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                            {existingFotoHasil.map((url, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={`Hasil ${index + 1}`}
+                                  className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-75"
+                                  onClick={() =>
+                                    openImageGallery(existingFotoHasil, index)
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeExistingFotoHasil(index)}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <ImageUploadZone
+                        label="Foto Hasil Perbaikan (Multiple)"
+                        files={fotoHasilFiles}
+                        previews={fotoHasilPreviews}
+                        onFilesChange={handleFotoHasilChange}
+                        onRemovePreview={removeFotoHasilPreview}
+                        iconColor="green"
+                      />
+                    </div>
                   </>
                 )}
 
@@ -1636,17 +1953,31 @@ export default function InspeksiKPCPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 font-medium disabled:opacity-70 flex items-center justify-center gap-2"
+                    className={`flex-1 px-5 py-3 text-white rounded-xl font-medium disabled:opacity-70 flex items-center justify-center gap-2 ${
+                      modalMode === "create"
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        : modalMode === "edit"
+                        ? "bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700"
+                        : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    }`}
                   >
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        {isEditMode ? "Memperbarui..." : "Menyimpan..."}
+                        {modalMode === "create"
+                          ? "Menyimpan..."
+                          : modalMode === "edit"
+                          ? "Mengupdate..."
+                          : "Mengupdate Perbaikan..."}
                       </>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        {isEditMode ? "Update" : "Simpan"}
+                        {modalMode === "create"
+                          ? "Simpan Temuan"
+                          : modalMode === "edit"
+                          ? "Update Detail"
+                          : "Update Perbaikan"}
                       </>
                     )}
                   </button>
@@ -1733,21 +2064,6 @@ export default function InspeksiKPCPage() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* Keyboard navigation for gallery */}
-      {showImageGallery && (
-        <div className="hidden">
-          <div
-            onKeyDown={(e) => {
-              if (e.key === "Escape") closeImageGallery();
-              if (e.key === "ArrowLeft") prevImage();
-              if (e.key === "ArrowRight") nextImage();
-            }}
-            tabIndex={0}
-            ref={(el) => el?.focus()}
-          />
-        </div>
-      )}
     </div>
   );
 }
