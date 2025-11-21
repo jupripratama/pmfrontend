@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api } from "./api";
 
 export interface TemuanKPC {
   id?: number;
@@ -6,7 +6,7 @@ export interface TemuanKPC {
   temuan: string;
   kategoriTemuan?: string;
   inspector?: string;
-  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  severity: "Low" | "Medium" | "High" | "Critical";
   tanggalTemuan: string;
   noFollowUp?: string;
   followUpRef?: string;
@@ -14,20 +14,20 @@ export interface TemuanKPC {
   tanggalPerbaikan?: string;
   tanggalSelesaiPerbaikan?: string;
   picPelaksana?: string;
-  status: 'Open' | 'In Progress' | 'Closed' | 'Rejected';
+  status: "Open" | "In Progress" | "Closed" | "Rejected";
   keterangan?: string;
-  
+
   fotoTemuanUrls?: string[];
   fotoHasilUrls?: string[];
-  
+
   fotoTemuan?: string;
   fotoHasil?: string;
-  
+
   createdByName?: string;
   createdAt?: string;
   updatedByName?: string;
   updatedAt?: string;
-  
+
   // ✅ TAMBAHKAN UNTUK HISTORY
   isDeleted?: boolean;
 }
@@ -55,22 +55,24 @@ export interface DeleteResponse {
 }
 
 export const inspeksiApi = {
-  getAll: async (params?: InspeksiQueryParams): Promise<PagedResponse<TemuanKPC>> => {
+  getAll: async (
+    params?: InspeksiQueryParams
+  ): Promise<PagedResponse<TemuanKPC>> => {
     // ✅ FIX: Gunakan queryParams yang sudah dibuat, bukan params langsung
     const queryParams = {
       ...params,
-      includeDeleted: params?.includeDeleted ?? false
+      includeDeleted: params?.includeDeleted ?? false,
     };
-    
-    console.log('📥 GET All params:', queryParams);
+
+    console.log("📥 GET All params:", queryParams);
 
     // ✅ FIX: Kirim queryParams, bukan params
-    const res = await api.get('/api/inspeksi-temuan-kpc', { 
-      params: queryParams  // ← INI YANG DIPERBAIKI
+    const res = await api.get("/api/inspeksi-temuan-kpc", {
+      params: queryParams, // ← INI YANG DIPERBAIKI
     });
-    
-    console.log('📥 GET All response - total items:', res.data.data?.length);
-    
+
+    console.log("📥 GET All response - total items:", res.data.data?.length);
+
     return {
       data: res.data.data ?? [],
       page: res.data.page ?? 1,
@@ -80,20 +82,25 @@ export const inspeksiApi = {
     };
   },
 
-  getHistory: async (params?: InspeksiQueryParams): Promise<PagedResponse<TemuanKPC>> => {
+  getHistory: async (
+    params?: InspeksiQueryParams
+  ): Promise<PagedResponse<TemuanKPC>> => {
     const queryParams = {
       ...params,
-      includeDeleted: true
+      includeDeleted: true,
     };
-    
-    console.log('📚 GET History params:', queryParams);
-    
-    const res = await api.get('/api/inspeksi-temuan-kpc/history', { 
-      params: queryParams 
+
+    console.log("📚 GET History params:", queryParams);
+
+    const res = await api.get("/api/inspeksi-temuan-kpc/history", {
+      params: queryParams,
     });
-    
-    console.log('📚 GET History response - total items:', res.data.data?.length);
-    
+
+    console.log(
+      "📚 GET History response - total items:",
+      res.data.data?.length
+    );
+
     return {
       data: res.data.data ?? [],
       page: res.data.page ?? 1,
@@ -120,96 +127,122 @@ export const inspeksiApi = {
     keterangan?: string;
     fotoTemuanFiles?: File[];
   }): Promise<{ message: string; id: number }> => {
-    console.log('📤 Creating new inspeksi:', data);
-    
+    console.log("📤 Creating new inspeksi:", data);
+
     const formData = new FormData();
-    formData.append('ruang', data.ruang);
-    formData.append('temuan', data.temuan);
-    
-    if (data.kategoriTemuan) formData.append('kategoriTemuan', data.kategoriTemuan);
-    if (data.inspector) formData.append('inspector', data.inspector);
-    if (data.severity) formData.append('severity', data.severity);
-    if (data.tanggalTemuan) formData.append('tanggalTemuan', data.tanggalTemuan);
-    if (data.noFollowUp) formData.append('noFollowUp', data.noFollowUp);
-    if (data.picPelaksana) formData.append('picPelaksana', data.picPelaksana);
-    if (data.keterangan) formData.append('keterangan', data.keterangan);
-    
+    formData.append("ruang", data.ruang);
+    formData.append("temuan", data.temuan);
+
+    if (data.kategoriTemuan)
+      formData.append("kategoriTemuan", data.kategoriTemuan);
+    if (data.inspector) formData.append("inspector", data.inspector);
+    if (data.severity) formData.append("severity", data.severity);
+    if (data.tanggalTemuan)
+      formData.append("tanggalTemuan", data.tanggalTemuan);
+    if (data.noFollowUp) formData.append("noFollowUp", data.noFollowUp);
+    if (data.picPelaksana) formData.append("picPelaksana", data.picPelaksana);
+    if (data.keterangan) formData.append("keterangan", data.keterangan);
+
     if (data.fotoTemuanFiles && data.fotoTemuanFiles.length > 0) {
-      data.fotoTemuanFiles.forEach(file => {
-        formData.append('fotoTemuanFiles', file);
+      data.fotoTemuanFiles.forEach((file) => {
+        formData.append("fotoTemuanFiles", file);
       });
     }
 
-    console.log('📤 FormData entries:');
+    console.log("📤 FormData entries:");
     for (let [key, value] of formData.entries()) {
-      console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.size} bytes)` : value);
+      console.log(
+        `  ${key}:`,
+        value instanceof File ? `${value.name} (${value.size} bytes)` : value
+      );
     }
 
-    const res = await api.post('/api/inspeksi-temuan-kpc', formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
+    const res = await api.post("/api/inspeksi-temuan-kpc", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
       },
     });
-    
-    console.log('✅ Inspeksi created:', res.data);
+
+    console.log("✅ Inspeksi created:", res.data);
     return res.data;
   },
 
-  update: async (id: number, data: {
-    noFollowUp?: string;
-    perbaikanDilakukan?: string;
-    tanggalPerbaikan?: string;
-    tanggalSelesaiPerbaikan?: string;
-    picPelaksana?: string;
-    status?: string;
-    keterangan?: string;
-    fotoHasilFiles?: File[];
-  }): Promise<{ message: string }> => {
-    console.log('📝 Updating inspeksi:', id, data);
-    
+  update: async (
+    id: number,
+    data: {
+      // ✅ TAMBAHKAN SEMUA FIELD
+      ruang?: string;
+      temuan?: string;
+      kategoriTemuan?: string;
+      inspector?: string;
+      severity?: string;
+      tanggalTemuan?: string;
+      noFollowUp?: string;
+      perbaikanDilakukan?: string;
+      tanggalPerbaikan?: string;
+      tanggalSelesaiPerbaikan?: string;
+      picPelaksana?: string;
+      status?: string;
+      keterangan?: string;
+      fotoTemuanFiles?: File[];
+      fotoHasilFiles?: File[];
+    }
+  ): Promise<{ message: string }> => {
     const formData = new FormData();
-    
-    if (data.noFollowUp) formData.append('noFollowUp', data.noFollowUp);
-    if (data.perbaikanDilakukan) formData.append('perbaikanDilakukan', data.perbaikanDilakukan);
-    if (data.tanggalPerbaikan) formData.append('tanggalPerbaikan', data.tanggalPerbaikan);
-    if (data.tanggalSelesaiPerbaikan) formData.append('tanggalSelesaiPerbaikan', data.tanggalSelesaiPerbaikan);
-    if (data.picPelaksana) formData.append('picPelaksana', data.picPelaksana);
-    if (data.status) formData.append('status', data.status);
-    if (data.keterangan) formData.append('keterangan', data.keterangan);
-    
-    if (data.fotoHasilFiles && data.fotoHasilFiles.length > 0) {
-      data.fotoHasilFiles.forEach(file => {
-        formData.append('fotoHasilFiles', file);
+
+    // ✅ APPEND SEMUA FIELD
+    if (data.ruang) formData.append("ruang", data.ruang);
+    if (data.temuan) formData.append("temuan", data.temuan);
+    if (data.kategoriTemuan)
+      formData.append("kategoriTemuan", data.kategoriTemuan);
+    if (data.inspector) formData.append("inspector", data.inspector);
+    if (data.severity) formData.append("severity", data.severity);
+    if (data.tanggalTemuan)
+      formData.append("tanggalTemuan", data.tanggalTemuan);
+    if (data.noFollowUp) formData.append("noFollowUp", data.noFollowUp);
+    if (data.perbaikanDilakukan)
+      formData.append("perbaikanDilakukan", data.perbaikanDilakukan);
+    if (data.tanggalPerbaikan)
+      formData.append("tanggalPerbaikan", data.tanggalPerbaikan);
+    if (data.tanggalSelesaiPerbaikan)
+      formData.append("tanggalSelesaiPerbaikan", data.tanggalSelesaiPerbaikan);
+    if (data.picPelaksana) formData.append("picPelaksana", data.picPelaksana);
+    if (data.status) formData.append("status", data.status);
+    if (data.keterangan) formData.append("keterangan", data.keterangan);
+
+    if (data.fotoTemuanFiles && data.fotoTemuanFiles.length > 0) {
+      data.fotoTemuanFiles.forEach((file) => {
+        formData.append("fotoTemuanFiles", file);
       });
     }
 
-    console.log('📝 FormData entries for update:');
-    for (let [key, value] of formData.entries()) {
-      console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.size} bytes)` : value);
+    if (data.fotoHasilFiles && data.fotoHasilFiles.length > 0) {
+      data.fotoHasilFiles.forEach((file) => {
+        formData.append("fotoHasilFiles", file);
+      });
     }
 
     const res = await api.patch(`/api/inspeksi-temuan-kpc/${id}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
     });
-    
-    console.log('✅ Inspeksi updated:', res.data);
+
     return res.data;
   },
 
   delete: async (id: number): Promise<DeleteResponse> => {
-    console.log('🗑️ Deleting inspeksi:', id);
+    console.log("🗑️ Deleting inspeksi:", id);
     const res = await api.delete(`/api/inspeksi-temuan-kpc/${id}`);
-    console.log('✅ Inspeksi deleted:', res.data);
-    
+    console.log("✅ Inspeksi deleted:", res.data);
+
     return {
-      message: res.data.message || 'Temuan berhasil dihapus'
+      message: res.data.message || "Temuan berhasil dihapus",
     };
   },
 
   restore: async (id: number): Promise<{ message: string }> => {
-    console.log('♻️ Restoring inspeksi:', id);
+    console.log("♻️ Restoring inspeksi:", id);
     const res = await api.patch(`/api/inspeksi-temuan-kpc/${id}/restore`);
-    console.log('✅ Inspeksi restored:', res.data);
+    console.log("✅ Inspeksi restored:", res.data);
     return res.data;
   },
 
@@ -220,27 +253,27 @@ export const inspeksiApi = {
     ruang?: string;
     status?: string;
   }): Promise<void> => {
-    console.log('📥 Exporting to Excel:', params);
-    
-    const response = await api.get('/api/inspeksi-temuan-kpc/export', {
+    console.log("📥 Exporting to Excel:", params);
+
+    const response = await api.get("/api/inspeksi-temuan-kpc/export", {
       params,
-      responseType: 'blob', // ✅ FIX: responseType bukan responseType
+      responseType: "blob", // ✅ FIX: responseType bukan responseType
     });
-    
+
     const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    
-    const fileName = params?.history 
-      ? `History_KPC_${new Date().toISOString().split('T')[0]}.xlsx`
-      : `Laporan_KPC_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
-    link.setAttribute('download', fileName);
+
+    const fileName = params?.history
+      ? `History_KPC_${new Date().toISOString().split("T")[0]}.xlsx`
+      : `Laporan_KPC_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+    link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-    
-    console.log('✅ Excel exported successfully');
+
+    console.log("✅ Excel exported successfully");
   },
 };

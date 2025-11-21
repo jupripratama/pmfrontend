@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { userApi, roleApi } from '../../services/api';
-import { User } from '../../types/auth';
-import { Role } from '../../types/permission';
+import React, { useState, useEffect } from "react";
+import { userApi, roleApi } from "../../services/api";
+import { User } from "../../types/auth";
+import { Role } from "../../types/permission";
 import {
   Search,
   UserCheck,
@@ -14,18 +14,24 @@ import {
   Eye,
   X,
   Trash2,
-} from 'lucide-react';
+  RefreshCw,
+  Clock,
+} from "lucide-react";
+import { formatDateTimeIndonesian } from "../../utils/dateUtils";
 
 export default function UsersManagementTab() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "active" | "inactive"
+  >("all");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [message, setMessage] = useState<{
-    type: 'success' | 'error';
+    type: "success" | "error";
     text: string;
   } | null>(null);
 
@@ -40,84 +46,139 @@ export default function UsersManagementTab() {
         userApi.getAll(),
         roleApi.getAll(),
       ]);
+
+      console.log("📊 Users data loaded:", usersData);
+
+      // ✅ TAMBAHKAN DEBUG LOG INI
+      const reUser = usersData.find((u) => u.username === "RE");
+      if (reUser) {
+        console.log("🔍 RE User Debug:");
+        console.log("  - Raw lastLogin:", reUser.lastLogin);
+        console.log("  - Type:", typeof reUser.lastLogin);
+        console.log("  - Date object:", new Date(reUser.lastLogin || ""));
+        console.log(
+          "  - Formatted:",
+          formatDateTimeIndonesian(reUser.lastLogin)
+        );
+      }
+
       setUsers(usersData);
       setRoles(rolesData);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setMessage({ type: 'error', text: 'Gagal memuat data users' });
+      console.error("Error fetching data:", error);
+      setMessage({ type: "error", text: "Gagal memuat data users" });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setMessage(null);
+
+      const [usersData, rolesData] = await Promise.all([
+        userApi.getAll(),
+        roleApi.getAll(),
+      ]);
+
+      setUsers(usersData);
+      setRoles(rolesData);
+
+      setMessage({ type: "success", text: "Data berhasil diperbarui" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      setMessage({ type: "error", text: "Gagal memperbarui data" });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Auto-refresh setiap 30 detik
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleActivate = async (userId: number) => {
-    if (!confirm('Aktifkan user ini?')) {
+    if (!confirm("Aktifkan user ini?")) {
       return;
     }
 
     try {
       await userApi.activateUser(userId);
-      setMessage({ type: 'success', text: 'User berhasil diaktifkan' });
+      setMessage({ type: "success", text: "User berhasil diaktifkan" });
       await fetchData();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal mengaktifkan user',
+        type: "error",
+        text: error.response?.data?.message || "Gagal mengaktifkan user",
       });
     }
   };
 
   const handleDeactivate = async (userId: number) => {
-    if (!confirm('Nonaktifkan user ini?')) {
+    if (!confirm("Nonaktifkan user ini?")) {
       return;
     }
 
     try {
       await userApi.deactivateUser(userId);
-      setMessage({ type: 'success', text: 'User berhasil dinonaktifkan' });
+      setMessage({ type: "success", text: "User berhasil dinonaktifkan" });
       await fetchData();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal menonaktifkan user',
+        type: "error",
+        text: error.response?.data?.message || "Gagal menonaktifkan user",
       });
     }
   };
 
   const handleChangeRole = async (userId: number, newRoleId: number) => {
-    if (!confirm('Ubah role user ini?')) {
+    if (!confirm("Ubah role user ini?")) {
       return;
     }
 
     try {
       await userApi.updateRole(userId, newRoleId);
-      setMessage({ type: 'success', text: 'Role user berhasil diubah' });
+      setMessage({ type: "success", text: "Role user berhasil diubah" });
       await fetchData();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal mengubah role',
+        type: "error",
+        text: error.response?.data?.message || "Gagal mengubah role",
       });
     }
   };
 
   const handleDeleteUser = async (userId: number, fullName: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus user "${fullName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+    if (
+      !confirm(
+        `Apakah Anda yakin ingin menghapus user "${fullName}"? Tindakan ini tidak dapat dibatalkan.`
+      )
+    ) {
       return;
     }
 
     try {
       await userApi.deleteUser(userId);
-      setMessage({ type: 'success', text: `User "${fullName}" berhasil dihapus` });
+      setMessage({
+        type: "success",
+        text: `User "${fullName}" berhasil dihapus`,
+      });
       await fetchData();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal menghapus user',
+        type: "error",
+        text: error.response?.data?.message || "Gagal menghapus user",
       });
     }
   };
@@ -125,18 +186,19 @@ export default function UsersManagementTab() {
   const handleViewDetail = async (userId: number) => {
     try {
       const userDetail = await userApi.getById(userId);
+      console.log("👤 User detail loaded:", userDetail);
       setSelectedUser(userDetail);
       setIsDetailModalOpen(true);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal memuat detail user',
+        type: "error",
+        text: error.response?.data?.message || "Gagal memuat detail user",
       });
     }
   };
 
   const getUserInitials = (fullName: string) => {
-    const names = fullName.split(' ');
+    const names = fullName.split(" ");
     if (names.length >= 2) {
       return `${names[0][0]}${names[1][0]}`.toUpperCase();
     }
@@ -150,9 +212,9 @@ export default function UsersManagementTab() {
       user.username.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      filterStatus === 'all' ||
-      (filterStatus === 'active' && user.isActive) ||
-      (filterStatus === 'inactive' && !user.isActive);
+      filterStatus === "all" ||
+      (filterStatus === "active" && user.isActive) ||
+      (filterStatus === "inactive" && !user.isActive);
 
     return matchesSearch && matchesStatus;
   });
@@ -174,11 +236,25 @@ export default function UsersManagementTab() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Kelola aktivasi dan role pengguna
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">User Management</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Kelola aktivasi dan role pengguna
+          </p>
+        </div>
+
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 transition-all"
+          title="Refresh data users"
+        >
+          <RefreshCw
+            className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+          />
+          {refreshing ? "Refreshing..." : "Refresh Data"}
+        </button>
       </div>
 
       {/* Stats */}
@@ -189,11 +265,15 @@ export default function UsersManagementTab() {
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-600 font-medium">Active Users</p>
-          <p className="text-2xl font-bold text-green-900 mt-1">{stats.active}</p>
+          <p className="text-2xl font-bold text-green-900 mt-1">
+            {stats.active}
+          </p>
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
           <p className="text-sm text-orange-600 font-medium">Inactive Users</p>
-          <p className="text-2xl font-bold text-orange-900 mt-1">{stats.inactive}</p>
+          <p className="text-2xl font-bold text-orange-900 mt-1">
+            {stats.inactive}
+          </p>
         </div>
       </div>
 
@@ -201,9 +281,9 @@ export default function UsersManagementTab() {
       {message && (
         <div
           className={`mb-6 p-4 rounded-lg flex items-start ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           <p className="flex-1">{message.text}</p>
@@ -231,7 +311,9 @@ export default function UsersManagementTab() {
 
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
+          onChange={(e) =>
+            setFilterStatus(e.target.value as "all" | "active" | "inactive")
+          }
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="all">All Status</option>
@@ -286,12 +368,16 @@ export default function UsersManagementTab() {
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.fullName}
+                        </p>
                         <div className="flex items-center space-x-2 mt-1">
                           <Mail className="w-3 h-3 text-gray-400" />
                           <p className="text-xs text-gray-500">{user.email}</p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">@{user.username}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          @{user.username}
+                        </p>
                       </div>
                     </div>
                   </td>
@@ -299,7 +385,9 @@ export default function UsersManagementTab() {
                   <td className="px-4 py-3">
                     <select
                       value={user.roleId}
-                      onChange={(e) => handleChangeRole(user.userId, parseInt(e.target.value))}
+                      onChange={(e) =>
+                        handleChangeRole(user.userId, parseInt(e.target.value))
+                      }
                       className="text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       {roles.map((role) => (
@@ -324,20 +412,11 @@ export default function UsersManagementTab() {
                     )}
                   </td>
 
+                  {/* ✅ PERBAIKAN: Gunakan formatDateTimeIndonesian */}
                   <td className="px-4 py-3">
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {user.lastLogin
-                          ? new Date(user.lastLogin).toLocaleString('id-ID', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : 'Never'}
-                      </span>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 whitespace-nowrap">
+                      <Clock className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                      <span>{formatDateTimeIndonesian(user.lastLogin)}</span>
                     </div>
                   </td>
 
@@ -345,7 +424,7 @@ export default function UsersManagementTab() {
                     <div className="flex items-center justify-center space-x-2">
                       <button
                         onClick={() => handleViewDetail(user.userId)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                        className="text-blue-600 hover:text-blue-800 p-1 transition-colors"
                         title="View Details"
                       >
                         <Eye className="w-5 h-5" />
@@ -353,7 +432,7 @@ export default function UsersManagementTab() {
                       {user.isActive ? (
                         <button
                           onClick={() => handleDeactivate(user.userId)}
-                          className="text-orange-600 hover:text-orange-800 p-1"
+                          className="text-orange-600 hover:text-orange-800 p-1 transition-colors"
                           title="Deactivate User"
                         >
                           <UserX className="w-5 h-5" />
@@ -361,15 +440,17 @@ export default function UsersManagementTab() {
                       ) : (
                         <button
                           onClick={() => handleActivate(user.userId)}
-                          className="text-green-600 hover:text-green-800 p-1"
+                          className="text-green-600 hover:text-green-800 p-1 transition-colors"
                           title="Activate User"
                         >
                           <UserCheck className="w-5 h-5" />
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteUser(user.userId, user.fullName)}
-                        className="text-red-600 hover:text-red-800 p-1"
+                        onClick={() =>
+                          handleDeleteUser(user.userId, user.fullName)
+                        }
+                        className="text-red-600 hover:text-red-800 p-1 transition-colors"
                         title="Delete User"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -388,11 +469,11 @@ export default function UsersManagementTab() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
               <h3 className="text-xl font-bold text-gray-900">User Details</h3>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -406,15 +487,17 @@ export default function UsersManagementTab() {
                   <img
                     src={selectedUser.photoUrl}
                     alt={selectedUser.fullName}
-                    className="w-20 h-20 rounded-full object-cover border-4 border-blue-500"
+                    className="w-20 h-20 rounded-full object-cover border-4 border-blue-500 shadow-lg"
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-blue-500">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl border-4 border-blue-500 shadow-lg">
                     {getUserInitials(selectedUser.fullName)}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-2xl font-bold text-gray-900">{selectedUser.fullName}</h4>
+                  <h4 className="text-2xl font-bold text-gray-900">
+                    {selectedUser.fullName}
+                  </h4>
                   <p className="text-gray-600">@{selectedUser.username}</p>
                   <div className="flex items-center space-x-2 mt-2">
                     {selectedUser.isActive ? (
@@ -435,89 +518,87 @@ export default function UsersManagementTab() {
               {/* Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
                     Email
                   </label>
-                  <div className="flex items-center space-x-2">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    <p className="text-gray-900">{selectedUser.email}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Role
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Shield className="w-4 h-4 text-gray-400" />
-                    <p className="text-gray-900">{selectedUser.roleName}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Created At
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <p className="text-gray-900">
-                      {selectedUser.createdAt
-                        ? new Date(selectedUser.createdAt).toLocaleString('id-ID', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Unknown'}
+                  <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                    <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <p className="text-gray-900 text-sm">
+                      {selectedUser.email}
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Role
+                  </label>
+                  <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                    <Shield className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <p className="text-gray-900 text-sm font-semibold">
+                      {selectedUser.roleName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ✅ PERBAIKAN: Created At dengan timezone WITA */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Created At
+                  </label>
+                  <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                    <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <p className="text-gray-900 text-sm">
+                      {formatDateTimeIndonesian(
+                        selectedUser.createdAt?.toString()
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ✅ PERBAIKAN: Last Login dengan timezone WITA */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
                     Last Login
                   </label>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <p className="text-gray-900">
-                      {selectedUser.lastLogin
-                        ? new Date(selectedUser.lastLogin).toLocaleString('id-ID', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Never logged in'}
+                  <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <p className="text-gray-900 text-sm font-medium">
+                      {formatDateTimeIndonesian(
+                        selectedUser.lastLogin?.toString()
+                      )}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Permissions */}
-              {selectedUser.permissions && selectedUser.permissions.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h5 className="text-sm font-medium text-gray-900 mb-3">Permissions</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedUser.permissions.map((permission, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full"
-                      >
-                        {permission}
-                      </span>
-                    ))}
+              {selectedUser.permissions &&
+                selectedUser.permissions.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-blue-600" />
+                      Permissions ({selectedUser.permissions.length})
+                    </h5>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedUser.permissions.map((permission, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full border border-blue-200"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => setIsDetailModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
               >
                 Close
               </button>
