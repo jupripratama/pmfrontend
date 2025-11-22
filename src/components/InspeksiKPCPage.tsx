@@ -592,117 +592,235 @@ export default function InspeksiKPCPage() {
     }
   };
 
-  // ✅ IMPROVED SUBMIT - WITH RACE CONDITION PREVENTION
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (isSubmitting || deletingPhoto) {
-    console.warn("⚠️ Operation in progress, ignoring...");
-    return;
-  }
-
-  setIsSubmitting(true);
-  setError("");
-  setSuccess("");
-
-  try {
-    let submitData: any = {};
-
-    if (modalMode === "create") {
-      // ... existing create code
-    } 
-    else if (modalMode === "edit" && editingId) {
-      submitData = {
-        ruang: form.ruang,
-        temuan: form.temuan,
-        kategoriTemuan: form.kategoriTemuan || "",
-        inspector: form.inspector || "",
-        severity: form.severity,
-        tanggalTemuan: form.tanggalTemuan,
-        noFollowUp: form.noFollowUp || "",
-        picPelaksana: form.picPelaksana || "",
-        keterangan: form.keterangan || "",
-      };
-
-      // ✅ TAMBAHKAN CLEAR FLAGS JIKA FIELD DIKOSONGKAN
-      if (form.noFollowUp === "") {
-        submitData.clearNoFollowUp = true;
-      }
-      if (form.picPelaksana === "") {
-        submitData.clearPicPelaksana = true;
-      }
-      if (form.keterangan === "") {
-        submitData.clearKeterangan = true;
-      }
-
-      if (fotoTemuanFiles.length > 0) {
-        submitData.fotoTemuanFiles = fotoTemuanFiles;
-      }
-
-      console.log("📤 EDIT - Sending data:", submitData);
-      await inspeksiApi.update(editingId, submitData);
-      setSuccess("Detail temuan berhasil diperbarui");
-    } 
-    else if (modalMode === "update" && editingId) {
-      submitData = {
-        noFollowUp: form.noFollowUp || "",
-        perbaikanDilakukan: form.perbaikanDilakukan || "",
-        tanggalPerbaikan: form.tanggalPerbaikan || null,
-        tanggalSelesaiPerbaikan: form.tanggalSelesaiPerbaikan || null,
-        picPelaksana: form.picPelaksana || "",
-        status: form.status,
-        keterangan: form.keterangan || "",
-      };
-
-      // ✅ TAMBAHKAN CLEAR FLAGS JIKA FIELD DIKOSONGKAN
-      if (form.noFollowUp === "") {
-        submitData.clearNoFollowUp = true;
-      }
-      if (form.picPelaksana === "") {
-        submitData.clearPicPelaksana = true;
-      }
-      if (form.perbaikanDilakukan === "") {
-        submitData.clearPerbaikanDilakukan = true;
-      }
-      if (form.keterangan === "") {
-        submitData.clearKeterangan = true;
-      }
-
-      // ✅ CLEAR DATE FIELDS JIKA DIKOSONGKAN
-      if (form.tanggalPerbaikan === "") {
-        submitData.tanggalPerbaikan = null;
-      }
-      if (form.tanggalSelesaiPerbaikan === "") {
-        submitData.tanggalSelesaiPerbaikan = null;
-      }
-
-      // ✅ PASTIKAN FOTO HASIL FILES DIKIRIM
-      if (fotoHasilFiles.length > 0) {
-        submitData.fotoHasilFiles = fotoHasilFiles;
-        console.log("📤 Including fotoHasilFiles:", fotoHasilFiles.length, "files");
-      }
-
-      console.log("📤 UPDATE - Sending data:", submitData);
-      const response = await inspeksiApi.update(editingId, submitData);
-      console.log("✅ UPDATE - Response:", response);
-      setSuccess("Perbaikan berhasil diupdate");
+    if (isSubmitting || deletingPhoto) {
+      console.warn("⚠️ Operation in progress, ignoring...");
+      return;
     }
 
-    closeModal();
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
 
-    // ✅ RELOAD DATA DENGAN DELAY UNTUK MEMASTIKAN DB UPDATED
-    setTimeout(() => {
-      loadData();
-    }, 1000);
+    try {
+      const formData = new FormData();
 
-  } catch (err: any) {
-    console.error("❌ Error submitting:", err);
-    const errorMessage = err.response?.data?.message || err.message || "Gagal menyimpan data";
-    setError(`Error: ${errorMessage}`);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      // ===================================
+      // ✅ CREATE MODE
+      // ===================================
+      if (modalMode === "create") {
+        // Required fields
+        formData.append("ruang", form.ruang.trim());
+        formData.append("temuan", form.temuan.trim());
+        formData.append("severity", form.severity);
+        formData.append("tanggalTemuan", form.tanggalTemuan);
+
+        // Optional fields - hanya kirim jika ada nilai
+        if (form.kategoriTemuan) {
+          formData.append("kategoriTemuan", form.kategoriTemuan.trim());
+        }
+        if (form.inspector) {
+          formData.append("inspector", form.inspector.trim());
+        }
+        if (form.noFollowUp) {
+          formData.append("noFollowUp", form.noFollowUp.trim());
+        }
+        if (form.picPelaksana) {
+          formData.append("picPelaksana", form.picPelaksana.trim());
+        }
+        if (form.keterangan) {
+          formData.append("keterangan", form.keterangan.trim());
+        }
+
+        // Upload foto temuan baru
+        if (fotoTemuanFiles.length > 0) {
+          fotoTemuanFiles.forEach((file) => {
+            formData.append("fotoTemuanFiles", file);
+          });
+        }
+
+        console.log("📤 CREATE - Sending FormData:");
+        for (let [key, value] of formData.entries()) {
+          console.log(
+            `  ${key}:`,
+            value instanceof File
+              ? `${value.name} (${value.size} bytes)`
+              : value
+          );
+        }
+
+        await inspeksiApi.create(formData);
+        setSuccess("Temuan berhasil dibuat");
+      }
+      // ===================================
+      // ✅ EDIT MODE - UPDATE DETAIL TEMUAN
+      // ===================================
+      else if (modalMode === "edit" && editingId) {
+        // Required fields - selalu kirim
+        formData.append("ruang", form.ruang.trim());
+        formData.append("temuan", form.temuan.trim());
+        formData.append("severity", form.severity);
+        formData.append("tanggalTemuan", form.tanggalTemuan);
+
+        // ✅ OPTIONAL TEXT FIELDS - Dengan clear flag logic
+
+        // KategoriTemuan
+        if (form.kategoriTemuan === "") {
+          formData.append("clearKategoriTemuan", "true");
+        } else if (form.kategoriTemuan) {
+          formData.append("kategoriTemuan", form.kategoriTemuan.trim());
+        }
+
+        // Inspector
+        if (form.inspector === "") {
+          formData.append("clearInspector", "true");
+        } else if (form.inspector) {
+          formData.append("inspector", form.inspector.trim());
+        }
+
+        // NoFollowUp
+        if (form.noFollowUp === "") {
+          formData.append("clearNoFollowUp", "true");
+        } else if (form.noFollowUp) {
+          formData.append("noFollowUp", form.noFollowUp.trim());
+        }
+
+        // PicPelaksana
+        if (form.picPelaksana === "") {
+          formData.append("clearPicPelaksana", "true");
+        } else if (form.picPelaksana) {
+          formData.append("picPelaksana", form.picPelaksana.trim());
+        }
+
+        // Keterangan
+        if (form.keterangan === "") {
+          formData.append("clearKeterangan", "true");
+        } else if (form.keterangan) {
+          formData.append("keterangan", form.keterangan.trim());
+        }
+
+        // ✅ Upload foto temuan baru (jika ada)
+        if (fotoTemuanFiles.length > 0) {
+          fotoTemuanFiles.forEach((file) => {
+            formData.append("fotoTemuanFiles", file);
+          });
+        }
+
+        console.log("📤 EDIT - Sending FormData:");
+        for (let [key, value] of formData.entries()) {
+          console.log(
+            `  ${key}:`,
+            value instanceof File
+              ? `${value.name} (${value.size} bytes)`
+              : value
+          );
+        }
+
+        await inspeksiApi.update(editingId, formData);
+        setSuccess("Detail temuan berhasil diperbarui");
+      }
+      // ===================================
+      // ✅ UPDATE MODE - UPDATE PERBAIKAN
+      // ===================================
+      else if (modalMode === "update" && editingId) {
+        // Status - selalu kirim
+        formData.append("status", form.status);
+
+        // ✅ OPTIONAL TEXT FIELDS - Dengan clear flag logic
+
+        // NoFollowUp
+        if (form.noFollowUp === "") {
+          formData.append("clearNoFollowUp", "true");
+        } else if (form.noFollowUp) {
+          formData.append("noFollowUp", form.noFollowUp.trim());
+        }
+
+        // PicPelaksana
+        if (form.picPelaksana === "") {
+          formData.append("clearPicPelaksana", "true");
+        } else if (form.picPelaksana) {
+          formData.append("picPelaksana", form.picPelaksana.trim());
+        }
+
+        // PerbaikanDilakukan
+        if (form.perbaikanDilakukan === "") {
+          formData.append("clearPerbaikanDilakukan", "true");
+        } else if (form.perbaikanDilakukan) {
+          formData.append("perbaikanDilakukan", form.perbaikanDilakukan.trim());
+        }
+
+        // Keterangan
+        if (form.keterangan === "") {
+          formData.append("clearKeterangan", "true");
+        } else if (form.keterangan) {
+          formData.append("keterangan", form.keterangan.trim());
+        }
+
+        // ✅ DATE FIELDS - Dengan clear flag logic
+
+        // TanggalPerbaikan
+        if (form.tanggalPerbaikan === "") {
+          formData.append("clearTanggalPerbaikan", "true");
+        } else if (form.tanggalPerbaikan) {
+          formData.append("tanggalPerbaikan", form.tanggalPerbaikan);
+        }
+
+        // TanggalSelesaiPerbaikan
+        if (form.tanggalSelesaiPerbaikan === "") {
+          formData.append("clearTanggalSelesaiPerbaikan", "true");
+        } else if (form.tanggalSelesaiPerbaikan) {
+          formData.append(
+            "tanggalSelesaiPerbaikan",
+            form.tanggalSelesaiPerbaikan
+          );
+        }
+
+        // ✅ Upload foto hasil baru (jika ada)
+        if (fotoHasilFiles.length > 0) {
+          console.log(
+            "📤 UPDATE - Attaching",
+            fotoHasilFiles.length,
+            "foto hasil files"
+          );
+          fotoHasilFiles.forEach((file, idx) => {
+            formData.append("fotoHasilFiles", file);
+            console.log(
+              `  📁 File ${idx + 1}: ${file.name} (${file.size} bytes)`
+            );
+          });
+        }
+
+        console.log("📤 UPDATE - Sending FormData:");
+        for (let [key, value] of formData.entries()) {
+          console.log(
+            `  ${key}:`,
+            value instanceof File
+              ? `${value.name} (${value.size} bytes)`
+              : value
+          );
+        }
+
+        await inspeksiApi.update(editingId, formData);
+        setSuccess("Perbaikan berhasil diupdate");
+      }
+
+      closeModal();
+
+      // ✅ Refresh data setelah delay
+      setTimeout(() => {
+        loadData();
+      }, 1000);
+    } catch (err: any) {
+      console.error("❌ Error submitting:", err);
+      const errorMessage =
+        err.response?.data?.message || err.message || "Gagal menyimpan data";
+      setError(`Error: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Yakin ingin memindahkan temuan ini ke history?")) return;
