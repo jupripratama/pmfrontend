@@ -1,7 +1,7 @@
 // components/Register.tsx - NEW FILE
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus,
   Eye,
@@ -16,16 +16,16 @@ import {
   Shield,
   Check,
   X as XIcon,
-} from 'lucide-react';
-import { authApi } from '../services/api';
+} from "lucide-react";
+import { authApi } from "../services/api";
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    fullName: '',
-    password: '',
-    confirmPassword: '',
+    username: "",
+    email: "",
+    fullName: "",
+    password: "",
+    confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -56,7 +56,7 @@ const Register: React.FC = () => {
 
   // Clear messages when user types
   useEffect(() => {
-    if (Object.values(formData).some(val => val)) {
+    if (Object.values(formData).some((val) => val)) {
       setError(null);
       setSuccess(null);
     }
@@ -71,44 +71,44 @@ const Register: React.FC = () => {
 
   const validateForm = () => {
     if (!formData.username.trim()) {
-      setError('Username harus diisi');
+      setError("Username harus diisi");
       return false;
     }
 
-    if (formData.username.length < 4) {
-      setError('Username minimal 4 karakter');
+    if (formData.username.length < 2) {
+      setError("Username minimal 4 karakter");
       return false;
     }
 
     if (!formData.email.trim()) {
-      setError('Email harus diisi');
+      setError("Email harus diisi");
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError('Format email tidak valid');
+      setError("Format email tidak valid");
       return false;
     }
 
     if (!formData.fullName.trim()) {
-      setError('Nama lengkap harus diisi');
+      setError("Nama lengkap harus diisi");
       return false;
     }
 
     if (!formData.password) {
-      setError('Password harus diisi');
+      setError("Password harus diisi");
       return false;
     }
 
-    const isPasswordValid = Object.values(passwordStrength).every(val => val);
+    const isPasswordValid = Object.values(passwordStrength).every((val) => val);
     if (!isPasswordValid) {
-      setError('Password belum memenuhi semua kriteria keamanan');
+      setError("Password belum memenuhi semua kriteria keamanan");
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Konfirmasi password tidak cocok');
+      setError("Konfirmasi password tidak cocok");
       return false;
     }
 
@@ -121,10 +121,10 @@ const Register: React.FC = () => {
     setSuccess(null);
 
     if (!validateForm()) {
-      const form = document.getElementById('register-form');
+      const form = document.getElementById("register-form");
       if (form) {
-        form.classList.add('animate-shake');
-        setTimeout(() => form.classList.remove('animate-shake'), 500);
+        form.classList.add("animate-shake");
+        setTimeout(() => form.classList.remove("animate-shake"), 500);
       }
       return;
     }
@@ -139,26 +139,28 @@ const Register: React.FC = () => {
         password: formData.password,
       });
 
-      setSuccess('Registrasi berhasil! Akun Anda menunggu aktivasi dari Admin.');
-      
+      setSuccess(
+        "Registrasi berhasil! Akun Anda menunggu aktivasi dari Admin."
+      );
+
       // Clear form
       setFormData({
-        username: '',
-        email: '',
-        fullName: '',
-        password: '',
-        confirmPassword: '',
+        username: "",
+        email: "",
+        fullName: "",
+        password: "",
+        confirmPassword: "",
       });
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/');
+        navigate("/");
       }, 3000);
     } catch (error: any) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = 'Gagal melakukan registrasi. Silakan coba lagi.';
-      
+      console.error("Registration error:", error);
+
+      let errorMessage = "Gagal melakukan registrasi. Silakan coba lagi.";
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {
@@ -166,13 +168,13 @@ const Register: React.FC = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setError(errorMessage);
 
-      const form = document.getElementById('register-form');
+      const form = document.getElementById("register-form");
       if (form) {
-        form.classList.add('animate-shake');
-        setTimeout(() => form.classList.remove('animate-shake'), 500);
+        form.classList.add("animate-shake");
+        setTimeout(() => form.classList.remove("animate-shake"), 500);
       }
     } finally {
       setIsLoading(false);
@@ -203,19 +205,23 @@ const Register: React.FC = () => {
   };
 
   const getPasswordStrengthColor = () => {
-    const validCount = Object.values(passwordStrength).filter(val => val).length;
-    if (validCount === 0) return 'bg-gray-300';
-    if (validCount <= 2) return 'bg-red-500';
-    if (validCount <= 4) return 'bg-yellow-500';
-    return 'bg-green-500';
+    const validCount = Object.values(passwordStrength).filter(
+      (val) => val
+    ).length;
+    if (validCount === 0) return "bg-gray-300";
+    if (validCount <= 2) return "bg-red-500";
+    if (validCount <= 4) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   const getPasswordStrengthText = () => {
-    const validCount = Object.values(passwordStrength).filter(val => val).length;
-    if (validCount === 0) return '';
-    if (validCount <= 2) return 'Weak';
-    if (validCount <= 4) return 'Medium';
-    return 'Strong';
+    const validCount = Object.values(passwordStrength).filter(
+      (val) => val
+    ).length;
+    if (validCount === 0) return "";
+    if (validCount <= 2) return "Weak";
+    if (validCount <= 4) return "Medium";
+    return "Strong";
   };
 
   return (
@@ -325,7 +331,9 @@ const Register: React.FC = () => {
                       <AlertCircle className="w-4 h-4 text-red-300" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-red-100 text-sm font-medium">{error}</p>
+                      <p className="text-red-100 text-sm font-medium">
+                        {error}
+                      </p>
                     </div>
                     <button
                       onClick={clearMessages}
@@ -352,7 +360,9 @@ const Register: React.FC = () => {
                       <CheckCircle2 className="w-4 h-4 text-green-300" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-green-100 text-sm font-medium">{success}</p>
+                      <p className="text-green-100 text-sm font-medium">
+                        {success}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -445,7 +455,7 @@ const Register: React.FC = () => {
                     <Lock className="h-5 w-5 text-blue-300/60 group-focus-within:text-blue-400 transition-colors" />
                   </div>
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
@@ -472,24 +482,36 @@ const Register: React.FC = () => {
                 {formData.password && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                    animate={{ opacity: 1, height: "auto" }}
                     className="mt-3"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-blue-200/70">Password Strength</span>
-                      <span className={`text-xs font-medium ${
-                        getPasswordStrengthText() === 'Strong' ? 'text-green-400' :
-                        getPasswordStrengthText() === 'Medium' ? 'text-yellow-400' :
-                        'text-red-400'
-                      }`}>
+                      <span className="text-xs text-blue-200/70">
+                        Password Strength
+                      </span>
+                      <span
+                        className={`text-xs font-medium ${
+                          getPasswordStrengthText() === "Strong"
+                            ? "text-green-400"
+                            : getPasswordStrengthText() === "Medium"
+                            ? "text-yellow-400"
+                            : "text-red-400"
+                        }`}
+                      >
                         {getPasswordStrengthText()}
                       </span>
                     </div>
                     <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ 
-                          width: `${(Object.values(passwordStrength).filter(val => val).length / 5) * 100}%` 
+                        animate={{
+                          width: `${
+                            (Object.values(passwordStrength).filter(
+                              (val) => val
+                            ).length /
+                              5) *
+                            100
+                          }%`,
                         }}
                         className={`h-full ${getPasswordStrengthColor()} transition-all duration-300`}
                       />
@@ -498,11 +520,14 @@ const Register: React.FC = () => {
                     {/* Password Requirements */}
                     <div className="mt-3 space-y-2">
                       {[
-                        { key: 'hasMinLength', text: 'At least 8 characters' },
-                        { key: 'hasUpperCase', text: 'One uppercase letter' },
-                        { key: 'hasLowerCase', text: 'One lowercase letter' },
-                        { key: 'hasNumber', text: 'One number' },
-                        { key: 'hasSpecialChar', text: 'One special character' },
+                        { key: "hasMinLength", text: "At least 8 characters" },
+                        { key: "hasUpperCase", text: "One uppercase letter" },
+                        { key: "hasLowerCase", text: "One lowercase letter" },
+                        { key: "hasNumber", text: "One number" },
+                        {
+                          key: "hasSpecialChar",
+                          text: "One special character",
+                        },
                       ].map((req) => (
                         <motion.div
                           key={req.key}
@@ -510,16 +535,22 @@ const Register: React.FC = () => {
                           animate={{ opacity: 1, x: 0 }}
                           className="flex items-center space-x-2"
                         >
-                          {passwordStrength[req.key as keyof typeof passwordStrength] ? (
+                          {passwordStrength[
+                            req.key as keyof typeof passwordStrength
+                          ] ? (
                             <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
                           ) : (
                             <XIcon className="w-4 h-4 text-red-400 flex-shrink-0" />
                           )}
-                          <span className={`text-xs ${
-                            passwordStrength[req.key as keyof typeof passwordStrength] 
-                              ? 'text-green-300' 
-                              : 'text-blue-200/50'
-                          }`}>
+                          <span
+                            className={`text-xs ${
+                              passwordStrength[
+                                req.key as keyof typeof passwordStrength
+                              ]
+                                ? "text-green-300"
+                                : "text-blue-200/50"
+                            }`}
+                          >
                             {req.text}
                           </span>
                         </motion.div>
@@ -539,7 +570,7 @@ const Register: React.FC = () => {
                     <Shield className="h-5 w-5 text-blue-300/60 group-focus-within:text-blue-400 transition-colors" />
                   </div>
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
@@ -566,18 +597,22 @@ const Register: React.FC = () => {
                 {formData.confirmPassword && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                    animate={{ opacity: 1, height: "auto" }}
                     className="mt-2 flex items-center space-x-2"
                   >
                     {formData.password === formData.confirmPassword ? (
                       <>
                         <Check className="w-4 h-4 text-green-400" />
-                        <span className="text-xs text-green-300">Passwords match</span>
+                        <span className="text-xs text-green-300">
+                          Passwords match
+                        </span>
                       </>
                     ) : (
                       <>
                         <XIcon className="w-4 h-4 text-red-400" />
-                        <span className="text-xs text-red-300">Passwords do not match</span>
+                        <span className="text-xs text-red-300">
+                          Passwords do not match
+                        </span>
                       </>
                     )}
                   </motion.div>
@@ -611,7 +646,7 @@ const Register: React.FC = () => {
             {/* Footer */}
             <motion.div variants={itemVariants} className="mt-6 text-center">
               <p className="text-blue-100/70 text-sm">
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <Link
                   to="/"
                   className="text-blue-300 hover:text-blue-200 font-medium transition-colors"
@@ -633,8 +668,9 @@ const Register: React.FC = () => {
                     Account Activation Required
                   </p>
                   <p className="text-blue-200/70 text-xs">
-                    Your account will need to be activated by an administrator before you can log in.
-                    You'll receive a confirmation once your account is activated.
+                    Your account will need to be activated by an administrator
+                    before you can log in. You'll receive a confirmation once
+                    your account is activated.
                   </p>
                 </div>
               </div>

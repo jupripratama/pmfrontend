@@ -1,108 +1,168 @@
-// services/api.ts - UPDATED VERSION WITH WORKING USER MANAGEMENT API
-import axios from 'axios';
-import { LoginRequest, User } from '../types/auth';
-import {  DailySummary, UploadCsvResponse, CallRecordsResponse, FleetStatisticType, FleetStatisticsDto } from '../types/callRecord';
-import { AssignPermissionsRequest, CreatePermissionRequest, CreateRoleRequest, Permission, Role, RolePermission, RolePermissionMatrix } from '../types/permission';
+// services/api.ts - UPDATED WITH EXTENDED TIMEOUT FOR CSV IMPORT
+
+import axios from "axios";
+import { LoginRequest, User } from "../types/auth";
+import {
+  DailySummary,
+  UploadCsvResponse,
+  CallRecordsResponse,
+  FleetStatisticType,
+  FleetStatisticsDto,
+} from "../types/callRecord";
+import {
+  AssignPermissionsRequest,
+  CreatePermissionRequest,
+  CreateRoleRequest,
+  Permission,
+  Role,
+  RolePermission,
+  RolePermissionMatrix,
+} from "../types/permission";
 
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (import.meta.env.DEV) {
-    return '';
+    return "";
   }
-  return import.meta.env.VITE_API_URL || 'https://pm-mkn-production.up.railway.app';
+  return (
+    import.meta.env.VITE_API_URL || "https://pm-mkn-production.up.railway.app"
+  );
 };
 
+// ✅ DEFAULT API INSTANCE (60 second timeout)
 export const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 30000,
+  timeout: 60000, // 60 seconds for normal operations
   withCredentials: false,
 });
 
-// Enhanced request interceptor
+// ✅ NEW: LONG RUNNING API INSTANCE (5 minute timeout for CSV import)
+export const apiLongRunning = axios.create({
+  baseURL: getBaseURL(),
+  timeout: 300000, // 5 MINUTES (300 seconds) for long operations
+  withCredentials: false,
+});
+
+// Enhanced request interceptor for DEFAULT API
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    if (!config.headers['Content-Type']) {
-      config.headers['Content-Type'] = 'application/json';
+
+    if (!config.headers["Content-Type"]) {
+      config.headers["Content-Type"] = "application/json";
     }
-    
-    console.log('🚀 API Request:', {
+
+    console.log("🚀 API Request:", {
       method: config.method?.toUpperCase(),
       url: config.url,
       baseURL: config.baseURL,
-      headers: config.headers
+      headers: config.headers,
     });
-    
+
     return config;
   },
   (error) => {
-    console.error('❌ Request Interceptor Error:', error);
+    console.error("❌ Request Interceptor Error:", error);
     return Promise.reject(error);
   }
 );
 
-// Enhanced response interceptor
-api.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Response Success:', {
-      status: response.status,
-      url: response.config.url,
+// ✅ SAME INTERCEPTOR FOR LONG RUNNING API
+apiLongRunning.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (!config.headers["Content-Type"]) {
+      config.headers["Content-Type"] = "application/json";
+    }
+
+    console.log("🚀 Long Running API Request:", {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      timeout: "5 minutes",
     });
-    return response;
+
+    return config;
   },
   (error) => {
-    console.error('❌ API Response Error:', {
-      status: error.response?.status,
-      message: error.message,
-      code: error.code,
-      url: error.config?.url,
-      config: error.config
-    });
-    
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-      console.error('🌐 Network Error Details:');
-      console.error('- Backend URL:', getBaseURL());
-      console.error('- Environment:', import.meta.env.MODE);
-      console.error('- VITE_API_URL:', import.meta.env.VITE_API_URL);
-      
-      throw new Error('Tidak dapat terhubung ke server. Periksa:\n1. Backend server sedang berjalan\n2. Koneksi internet stabil\n3. CORS configuration di backend');
-    }
-    
-    if (error.response?.status === 401) {
-      console.warn('🛑 Unauthorized - Redirect to login');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('permissions');
-    } else if (error.response?.status === 403) {
-      console.warn('🚫 Forbidden - Insufficient permissions');
-    }
-    
+    console.error("❌ Request Interceptor Error:", error);
     return Promise.reject(error);
   }
 );
 
+// Enhanced response interceptor for both instances
+const responseInterceptor = (response: any) => {
+  console.log("✅ API Response Success:", {
+    status: response.status,
+    url: response.config.url,
+  });
+  return response;
+};
+
+const errorInterceptor = (error: any) => {
+  console.error("❌ API Response Error:", {
+    status: error.response?.status,
+    message: error.message,
+    code: error.code,
+    url: error.config?.url,
+    config: error.config,
+  });
+
+  if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+    console.error("🌐 Network Error Details:");
+    console.error("- Backend URL:", getBaseURL());
+    console.error("- Environment:", import.meta.env.MODE);
+    console.error("- VITE_API_URL:", import.meta.env.VITE_API_URL);
+
+    throw new Error(
+      "Tidak dapat terhubung ke server. Periksa:\n1. Backend server sedang berjalan\n2. Koneksi internet stabil\n3. CORS configuration di backend"
+    );
+  }
+
+  if (error.response?.status === 401) {
+    console.warn("🛑 Unauthorized - Redirect to login");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("permissions");
+  } else if (error.response?.status === 403) {
+    console.warn("🚫 Forbidden - Insufficient permissions");
+  }
+
+  return Promise.reject(error);
+};
+
+// Apply interceptors to both instances
+api.interceptors.response.use(responseInterceptor, errorInterceptor);
+apiLongRunning.interceptors.response.use(responseInterceptor, errorInterceptor);
+
 // Test connection function
-export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
+export const testConnection = async (): Promise<{
+  success: boolean;
+  message: string;
+}> => {
   try {
-    console.log('🔗 Testing connection to:', getBaseURL());
-    const response = await api.get('/api/auth/profile', { 
+    console.log("🔗 Testing connection to:", getBaseURL());
+    const response = await api.get("/api/auth/profile", {
       timeout: 10000,
-      validateStatus: (status) => status < 500
+      validateStatus: (status) => status < 500,
     });
-    console.log('🔗 Connection test response status:', response.status);
-    return { 
-      success: true, 
-      message: `Server connected (Status: ${response.status})` 
+    console.log("🔗 Connection test response status:", response.status);
+    return {
+      success: true,
+      message: `Server connected (Status: ${response.status})`,
     };
   } catch (error: any) {
-    console.error('🔗 Connection test failed:', error);
-    return { 
-      success: false, 
-      message: error.message || 'Failed to connect to server' 
+    console.error("🔗 Connection test failed:", error);
+    return {
+      success: false,
+      message: error.message || "Failed to connect to server",
     };
   }
 };
@@ -111,213 +171,221 @@ export const testConnection = async (): Promise<{ success: boolean; message: str
 export const authApi = {
   login: async (credentials: LoginRequest) => {
     try {
-      console.log('🔐 Login attempt to:', `${getBaseURL()}/api/auth/login`);
-      
-      const response = await api.post('/api/auth/login', credentials);
-      console.log('🔐 Login response received:', response.data);
-      
+      console.log("🔐 Login attempt to:", `${getBaseURL()}/api/auth/login`);
+
+      const response = await api.post("/api/auth/login", credentials);
+      console.log("🔐 Login response received:", response.data);
+
       const data = response.data.data;
-      
+
       // Save token and user data
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('permissions', JSON.stringify(data.permissions));
-      
-      console.log('🔐 Login successful, user:', data.user.fullName);
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("permissions", JSON.stringify(data.permissions));
+
+      console.log("🔐 Login successful, user:", data.user.fullName);
       return data;
-      
     } catch (error: any) {
-      console.error('❌ Login API error:', error);
-      
-      if (error.code === 'ERR_NETWORK') {
-        throw new Error('Tidak dapat terhubung ke server. Pastikan backend sedang berjalan dan dapat diakses.');
+      console.error("❌ Login API error:", error);
+
+      if (error.code === "ERR_NETWORK") {
+        throw new Error(
+          "Tidak dapat terhubung ke server. Pastikan backend sedang berjalan dan dapat diakses."
+        );
       }
-      
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
-      throw new Error(errorMessage || 'Login failed');
+
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message;
+      throw new Error(errorMessage || "Login failed");
     }
   },
 
   getProfile: async (): Promise<User> => {
-    console.log('📡 Fetching user profile...');
-    const response = await api.get('/api/auth/profile');
-    console.log('✅ Profile response:', response.data);
-    
-    // ✅ Handle structured response
+    console.log("📡 Fetching user profile...");
+    const response = await api.get("/api/auth/profile");
+    console.log("✅ Profile response:", response.data);
+
     let userData: User;
-    
+
     if (response.data.data) {
-      // Structured response: { statusCode, message, data, meta }
       userData = response.data.data;
     } else {
-      // Direct response (fallback)
       userData = response.data;
     }
-    
-    console.log('✅ Extracted user data:', userData);
-    
-    // ✅ Validate required fields
+
+    console.log("✅ Extracted user data:", userData);
+
     if (!userData || !userData.userId) {
-      throw new Error('Invalid user data received from server');
+      throw new Error("Invalid user data received from server");
     }
-    
-    // ✅ Update localStorage
-    localStorage.setItem('user', JSON.stringify(userData));
-    
+
+    localStorage.setItem("user", JSON.stringify(userData));
+
     return userData;
   },
 
-  uploadProfilePhoto: async (userId: number, file: File): Promise<{ photoUrl: string }> => {
+  uploadProfilePhoto: async (
+    userId: number,
+    file: File
+  ): Promise<{ photoUrl: string }> => {
     const formData = new FormData();
-    formData.append('photo', file);
-    
-    console.log('📤 Uploading photo for user:', userId);
-    
+    formData.append("photo", file);
+
+    console.log("📤 Uploading photo for user:", userId);
+
     const response = await api.post(`/api/users/${userId}/photo`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
 
-    console.log('📤 Photo upload response:', response.data);
+    console.log("📤 Photo upload response:", response.data);
 
-    // ✅ Handle both response structures
     let photoUrl: string;
-    
+
     if (response.data.data) {
       photoUrl = response.data.data.photoUrl || response.data.data;
     } else {
       photoUrl = response.data.photoUrl || response.data;
     }
-    
+
     if (!photoUrl) {
-      console.error('❌ No photoUrl in response:', response.data);
-      throw new Error('PhotoUrl not found in response');
+      console.error("❌ No photoUrl in response:", response.data);
+      throw new Error("PhotoUrl not found in response");
     }
 
-    console.log('✅ Photo uploaded successfully:', photoUrl);
-    
+    console.log("✅ Photo uploaded successfully:", photoUrl);
+
     return { photoUrl };
   },
 
   deleteProfilePhoto: async (userId: number): Promise<void> => {
-    console.log('🗑️ Deleting photo for user:', userId);
+    console.log("🗑️ Deleting photo for user:", userId);
     await api.delete(`/api/users/${userId}/photo`);
-    console.log('✅ Photo deleted successfully');
+    console.log("✅ Photo deleted successfully");
   },
 
-  updateProfile: async (userId: number, profileData: {
-    fullName?: string;
-    email?: string;
-  }): Promise<User> => {
-    console.log('📝 Updating profile for user:', userId, profileData);
+  updateProfile: async (
+    userId: number,
+    profileData: {
+      fullName?: string;
+      email?: string;
+    }
+  ): Promise<User> => {
+    console.log("📝 Updating profile for user:", userId, profileData);
     const response = await api.put(`/api/users/${userId}`, profileData);
-    console.log('✅ Profile updated:', response.data);
-    
+    console.log("✅ Profile updated:", response.data);
+
     const updatedUser = response.data.data;
-    
+
     return updatedUser;
   },
 
   getPermissions: (): string[] => {
-    const permissionsStr = localStorage.getItem('permissions');
+    const permissionsStr = localStorage.getItem("permissions");
     return permissionsStr ? JSON.parse(permissionsStr) : [];
   },
 
- 
-register: async (userData: {
-  username: string;
-  email: string;
-  password: string;
-  fullName: string;
-}): Promise<void> => {
-  console.log('📤 Sending register request:', {
-    username: userData.username,
-    email: userData.email,
-    fullName: userData.fullName,
-    // Don't log password
-  });
+  register: async (userData: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+  }): Promise<void> => {
+    console.log("📤 Sending register request:", {
+      username: userData.username,
+      email: userData.email,
+      fullName: userData.fullName,
+    });
 
-  // ✅ ADD confirmPassword to match backend DTO
-  const requestData = {
-    username: userData.username,
-    email: userData.email,
-    password: userData.password,
-    confirmPassword: userData.password,  // ← TAMBAHKAN INI!
-    fullName: userData.fullName,
-  };
+    const requestData = {
+      username: userData.username,
+      email: userData.email,
+      password: userData.password,
+      confirmPassword: userData.password,
+      fullName: userData.fullName,
+    };
 
-  console.log('📦 Request payload (with confirmPassword):', {
-    ...requestData,
-    password: '***',
-    confirmPassword: '***'
-  });
+    console.log("📦 Request payload (with confirmPassword):", {
+      ...requestData,
+      password: "***",
+      confirmPassword: "***",
+    });
 
-  const response = await api.post('/api/auth/register', requestData);
-  
-  console.log('✅ Register response:', response.data);
-  return response.data;
-},
+    const response = await api.post("/api/auth/register", requestData);
 
-  changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {
-    await api.post('/api/auth/change-password', {
+    console.log("✅ Register response:", response.data);
+    return response.data;
+  },
+
+  changePassword: async (
+    oldPassword: string,
+    newPassword: string
+  ): Promise<void> => {
+    await api.post("/api/auth/change-password", {
       currentPassword: oldPassword,
       newPassword: newPassword,
-      confirmPassword: newPassword
+      confirmPassword: newPassword,
     });
   },
 
   logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('permissions');
-    console.log('👋 Logout successful');
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("permissions");
+    console.log("👋 Logout successful");
   },
-
 
   healthCheck: async (): Promise<boolean> => {
     try {
-      const response = await api.get('/api/auth/profile', { 
+      const response = await api.get("/api/auth/profile", {
         timeout: 5000,
-        validateStatus: () => true
+        validateStatus: () => true,
       });
       return response.status < 500;
     } catch (error: any) {
-      console.error('🔍 Health check failed:', error);
+      console.error("🔍 Health check failed:", error);
       return false;
     }
-  }
+  },
 };
 
 // Call Record API functions
 export const callRecordApi = {
   getDailySummary: async (date: string): Promise<DailySummary> => {
     try {
-      console.log('📡 API Call: getDailySummary', { date });
+      console.log("📡 API Call: getDailySummary", { date });
       const response = await api.get(`/api/call-records/summary/daily/${date}`);
-      console.log('📊 Daily Summary Data:', response.data.data);
+      console.log("📊 Daily Summary Data:", response.data.data);
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error loading daily summary:', error);
+      console.error("❌ Error loading daily summary:", error);
       const errorMessage = error.response?.data?.message || error.message;
       throw new Error(`Failed to load daily summary: ${errorMessage}`);
     }
   },
 
-  getOverallSummary: async (startDate: string, endDate: string): Promise<any> => {
+  getOverallSummary: async (
+    startDate: string,
+    endDate: string
+  ): Promise<any> => {
     try {
-      const response = await api.get(`/api/call-records/summary/overall?startDate=${startDate}&endDate=${endDate}`);
+      const response = await api.get(
+        `/api/call-records/summary/overall?startDate=${startDate}&endDate=${endDate}`
+      );
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error loading overall summary:', error);
+      console.error("❌ Error loading overall summary:", error);
       throw error;
     }
   },
 
   getCallRecords: async (
-    startDate?: string, 
-    endDate?: string, 
-    page: number = 1, 
+    startDate?: string,
+    endDate?: string,
+    page: number = 1,
     pageSize: number = 15,
     search?: string,
     callCloseReason?: number,
@@ -326,84 +394,128 @@ export const callRecordApi = {
     sortDir?: string
   ): Promise<CallRecordsResponse> => {
     try {
-      console.log('📡 API Call: getCallRecords', { 
-        startDate, 
-        endDate, 
-        page, 
+      console.log("📡 API Call: getCallRecords", {
+        startDate,
+        endDate,
+        page,
         pageSize,
         search,
         callCloseReason,
         hourGroup,
         sortBy,
-        sortDir
+        sortDir,
       });
 
       const params: any = {
         page,
-        pageSize
+        pageSize,
       };
 
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (search) params.search = search;
-      if (callCloseReason !== undefined) params.callCloseReason = callCloseReason;
+      if (callCloseReason !== undefined)
+        params.callCloseReason = callCloseReason;
       if (hourGroup !== undefined) params.hourGroup = hourGroup;
       if (sortBy) params.sortBy = sortBy;
       if (sortDir) params.sortDir = sortDir;
 
-      const response = await api.get('/api/call-records', { params });
-      
-      console.log('📊 Call Records Response:', {
+      const response = await api.get("/api/call-records", { params });
+
+      console.log("📊 Call Records Response:", {
         totalCount: response.data.data?.totalCount,
         page: response.data.data?.page,
         totalPages: response.data.data?.totalPages,
-        recordsCount: response.data.data?.data?.length
+        recordsCount: response.data.data?.data?.length,
       });
-      
+
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error fetching call records:', error);
+      console.error("❌ Error fetching call records:", error);
       const errorMessage = error.response?.data?.message || error.message;
       throw new Error(`Failed to load call records: ${errorMessage}`);
     }
   },
 
-  importCsv: async (file: File): Promise<UploadCsvResponse> => {
+  // ✅ UPDATED: importCsv now uses apiLongRunning with 5 minute timeout
+  importCsv: async (
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<UploadCsvResponse> => {
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await api.post('/api/call-records/import-csv', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        timeout: 60000
-      });
+      formData.append("file", file);
+
+      console.log("📤 Starting CSV import with 5 minute timeout...");
+      console.log(
+        "📦 File:",
+        file.name,
+        "Size:",
+        (file.size / 1024 / 1024).toFixed(2),
+        "MB"
+      );
+
+      // ✅ USE apiLongRunning instead of api
+      const response = await apiLongRunning.post(
+        "/api/call-records/import-csv",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              console.log("📊 Upload progress:", percentCompleted + "%");
+              onProgress?.(percentCompleted);
+            }
+          },
+          // ✅ Explicit 5 minute timeout (already set in apiLongRunning, but can override)
+          timeout: 300000,
+        }
+      );
+
+      console.log("✅ CSV import completed:", response.data);
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error importing CSV:', error);
+      console.error("❌ Error importing CSV:", error);
+
+      if (error.code === "ECONNABORTED") {
+        throw new Error(
+          "Upload timeout - File terlalu besar atau koneksi lambat. Coba lagi dengan file yang lebih kecil."
+        );
+      }
+
       throw error;
     }
   },
 
   exportCsv: async (startDate: string, endDate: string): Promise<void> => {
     try {
-      const response = await api.get(`/api/call-records/export/csv?startDate=${startDate}&endDate=${endDate}`, {
-        responseType: 'blob'
-      });
-      
+      const response = await api.get(
+        `/api/call-records/export/csv?startDate=${startDate}&endDate=${endDate}`,
+        {
+          responseType: "blob",
+        }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `CallRecords_${startDate}_to_${endDate}.csv`);
+      link.setAttribute(
+        "download",
+        `CallRecords_${startDate}_to_${endDate}.csv`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      console.log('📤 CSV Export completed');
+
+      console.log("📤 CSV Export completed");
     } catch (error: any) {
-      console.error('❌ Error exporting CSV:', error);
+      console.error("❌ Error exporting CSV:", error);
       throw error;
     }
   },
@@ -411,120 +523,136 @@ export const callRecordApi = {
   exportDailyCsv: async (date: string): Promise<void> => {
     try {
       const response = await api.get(`/api/call-records/export/csv/${date}`, {
-        responseType: 'blob'
+        responseType: "blob",
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `CallRecords_${date}.csv`);
+      link.setAttribute("download", `CallRecords_${date}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      console.log('📤 Daily CSV Export completed');
+
+      console.log("📤 Daily CSV Export completed");
     } catch (error: any) {
-      console.error('❌ Error exporting daily CSV:', error);
+      console.error("❌ Error exporting daily CSV:", error);
       throw error;
     }
   },
 
   exportDailySummaryExcel: async (date: string): Promise<void> => {
     try {
-      const response = await api.get(`/api/call-records/export/daily-summary/${date}`, {
-        responseType: 'blob'
-      });
-      
+      const response = await api.get(
+        `/api/call-records/export/daily-summary/${date}`,
+        {
+          responseType: "blob",
+        }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `Daily_Summary_${date}.xlsx`);
+      link.setAttribute("download", `Daily_Summary_${date}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      console.log('📤 Daily Excel Export completed');
+
+      console.log("📤 Daily Excel Export completed");
     } catch (error: any) {
-      console.error('❌ Error exporting daily Excel:', error);
+      console.error("❌ Error exporting daily Excel:", error);
       throw error;
     }
   },
 
-  exportOverallSummaryExcel: async (startDate: string, endDate: string): Promise<void> => {
+  exportOverallSummaryExcel: async (
+    startDate: string,
+    endDate: string
+  ): Promise<void> => {
     try {
-      const response = await api.get(`/api/call-records/export/overall-summary?startDate=${startDate}&endDate=${endDate}`, {
-        responseType: 'blob'
-      });
-      
+      const response = await api.get(
+        `/api/call-records/export/overall-summary?startDate=${startDate}&endDate=${endDate}`,
+        {
+          responseType: "blob",
+        }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `Overall_Summary_${startDate}_to_${endDate}.xlsx`);
+      link.setAttribute(
+        "download",
+        `Overall_Summary_${startDate}_to_${endDate}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      console.log('📤 Overall Excel Export completed');
+
+      console.log("📤 Overall Excel Export completed");
     } catch (error: any) {
-      console.error('❌ Error exporting overall Excel:', error);
+      console.error("❌ Error exporting overall Excel:", error);
       throw error;
     }
   },
 
   deleteCallRecords: async (date: string): Promise<boolean> => {
     try {
-      console.log('🗑️ Delete API call for date:', date);
-      
+      console.log("🗑️ Delete API call for date:", date);
+
       const response = await api.delete(`/api/call-records/${date}`);
-      
-      console.log('📊 Delete API Response:', response.data);
-      
+
+      console.log("📊 Delete API Response:", response.data);
+
       if (response.data?.data?.deleted !== undefined) {
         return response.data.data.deleted;
       } else if (response.data?.deleted !== undefined) {
         return response.data.deleted;
       } else {
-        console.warn('❓ Unknown delete response structure:', response.data);
+        console.warn("❓ Unknown delete response structure:", response.data);
         return false;
       }
     } catch (error: any) {
-      console.error('❌ Error deleting records:', error);
-      
+      console.error("❌ Error deleting records:", error);
+
       const errorMessage = error.response?.data?.message || error.message;
-      
+
       if (error.response?.status === 403) {
-        throw new Error('Access denied: You do not have permission to delete call records');
+        throw new Error(
+          "Access denied: You do not have permission to delete call records"
+        );
       } else if (error.response?.status === 401) {
-        throw new Error('Authentication required: Please login again');
+        throw new Error("Authentication required: Please login again");
       } else {
-        throw new Error(errorMessage || 'Error deleting call records');
+        throw new Error(errorMessage || "Error deleting call records");
       }
     }
   },
 
   getFleetStatistics: async (
-    date?: string, 
-    top: number = 10, 
+    date?: string,
+    top: number = 10,
     type?: FleetStatisticType
   ): Promise<FleetStatisticsDto> => {
     try {
-      console.log('📡 API Call: getFleetStatistics', { date, top, type });
-      
+      console.log("📡 API Call: getFleetStatistics", { date, top, type });
+
       const params: any = { top };
       if (date) params.date = date;
       if (type && type !== FleetStatisticType.All) {
         params.type = type;
       }
 
-      const response = await api.get('/api/call-records/fleet-statistics', { params });
-      console.log('📊 Fleet Statistics Data:', response.data.data);
-      
+      const response = await api.get("/api/call-records/fleet-statistics", {
+        params,
+      });
+      console.log("📊 Fleet Statistics Data:", response.data.data);
+
       return response.data.data;
     } catch (error: any) {
-      console.error('❌ Error loading fleet statistics:', error);
+      console.error("❌ Error loading fleet statistics:", error);
       const errorMessage = error.response?.data?.message || error.message;
       throw new Error(`Failed to load fleet statistics: ${errorMessage}`);
     }
@@ -534,7 +662,7 @@ export const callRecordApi = {
 // Permission APIs
 export const permissionApi = {
   getAll: async (): Promise<Permission[]> => {
-    const response = await api.get('/api/permissions');
+    const response = await api.get("/api/permissions");
     return response.data.data;
   },
 
@@ -544,11 +672,14 @@ export const permissionApi = {
   },
 
   create: async (data: CreatePermissionRequest): Promise<Permission> => {
-    const response = await api.post('/api/permissions', data);
+    const response = await api.post("/api/permissions", data);
     return response.data.data;
   },
 
-  update: async (id: number, data: CreatePermissionRequest): Promise<Permission> => {
+  update: async (
+    id: number,
+    data: CreatePermissionRequest
+  ): Promise<Permission> => {
     const response = await api.put(`/api/permissions/${id}`, data);
     return response.data.data;
   },
@@ -561,7 +692,7 @@ export const permissionApi = {
 // Role APIs
 export const roleApi = {
   getAll: async (): Promise<Role[]> => {
-    const response = await api.get('/api/roles');
+    const response = await api.get("/api/roles");
     return response.data.data;
   },
 
@@ -571,7 +702,7 @@ export const roleApi = {
   },
 
   create: async (data: CreateRoleRequest): Promise<Role> => {
-    const response = await api.post('/api/roles', data);
+    const response = await api.post("/api/roles", data);
     return response.data.data;
   },
 
@@ -588,7 +719,7 @@ export const roleApi = {
 // Role-Permission APIs
 export const rolePermissionApi = {
   getMatrix: async (): Promise<RolePermissionMatrix[]> => {
-    const response = await api.get('/api/role-permissions/matrix');
+    const response = await api.get("/api/role-permissions/matrix");
     return response.data.data;
   },
 
@@ -597,55 +728,63 @@ export const rolePermissionApi = {
     return response.data.data;
   },
 
-  assignPermissions: async (roleId: number, permissionIds: number[]): Promise<void> => {
+  assignPermissions: async (
+    roleId: number,
+    permissionIds: number[]
+  ): Promise<void> => {
     await api.put(`/api/role-permissions/role/${roleId}`, { permissionIds });
   },
 
-  removePermission: async (roleId: number, permissionId: number): Promise<void> => {
-    await api.delete(`/api/role-permissions/role/${roleId}/permission/${permissionId}`);
+  removePermission: async (
+    roleId: number,
+    permissionId: number
+  ): Promise<void> => {
+    await api.delete(
+      `/api/role-permissions/role/${roleId}/permission/${permissionId}`
+    );
   },
 };
 
-// ✅ UPDATED User Management APIs - WORKING VERSION
+// User Management APIs
 export const userApi = {
   getAll: async (): Promise<User[]> => {
-    console.log('📡 Fetching all users...');
-    const response = await api.get('/api/users');
-    console.log('✅ Users fetched:', response.data.data);
+    console.log("📡 Fetching all users...");
+    const response = await api.get("/api/users");
+    console.log("✅ Users fetched:", response.data.data);
     return response.data.data;
   },
 
   getById: async (id: number): Promise<User> => {
-    console.log('📡 Fetching user by ID:', id);
+    console.log("📡 Fetching user by ID:", id);
     const response = await api.get(`/api/users/${id}`);
-    console.log('✅ User fetched:', response.data.data);
+    console.log("✅ User fetched:", response.data.data);
     return response.data.data;
   },
 
   updateRole: async (userId: number, roleId: number): Promise<User> => {
-    console.log('📝 Updating user role:', { userId, roleId });
+    console.log("📝 Updating user role:", { userId, roleId });
     const response = await api.patch(`/api/users/${userId}/role`, { roleId });
-    console.log('✅ User role updated:', response.data.data);
+    console.log("✅ User role updated:", response.data.data);
     return response.data.data;
   },
 
   activateUser: async (userId: number): Promise<User> => {
-    console.log('✅ Activating user:', userId);
+    console.log("✅ Activating user:", userId);
     const response = await api.patch(`/api/users/${userId}/activate`);
-    console.log('✅ User activated:', response.data.data);
+    console.log("✅ User activated:", response.data.data);
     return response.data.data;
   },
 
   deactivateUser: async (userId: number): Promise<User> => {
-    console.log('🚫 Deactivating user:', userId);
+    console.log("🚫 Deactivating user:", userId);
     const response = await api.patch(`/api/users/${userId}/deactivate`);
-    console.log('✅ User deactivated:', response.data.data);
+    console.log("✅ User deactivated:", response.data.data);
     return response.data.data;
   },
 
   deleteUser: async (userId: number): Promise<void> => {
-    console.log('🗑️ Deleting user:', userId);
+    console.log("🗑️ Deleting user:", userId);
     await api.delete(`/api/users/${userId}`);
-    console.log('✅ User deleted successfully');
+    console.log("✅ User deleted successfully");
   },
 };
