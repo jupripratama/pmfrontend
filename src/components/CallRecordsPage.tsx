@@ -1,28 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  Calendar, 
-  Download, 
-  Search, 
-  Filter, 
-  FileDown, 
-  Trash2, 
-  BarChart3, 
-  Phone, 
-  PhoneOff, 
-  PhoneMissed, 
-  TrendingUp, 
-  AlertCircle, 
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  Calendar,
+  Download,
+  Search,
+  Filter,
+  FileDown,
+  Trash2,
+  BarChart3,
+  Phone,
+  PhoneOff,
+  PhoneMissed,
+  TrendingUp,
+  AlertCircle,
   Info,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { callRecordApi } from '../services/api';
-import { CallRecord, CallRecordsResponse, DailySummary } from '../types/callRecord';
-import HourlyChart from './HourlyChart';
-import HourlySummaryTable from './HourlySummaryTable';
+  ChevronUp,
+} from "lucide-react";
+import { callRecordApi } from "../services/api";
+import {
+  CallRecord,
+  CallRecordsResponse,
+  DailySummary,
+} from "../types/callRecord";
+import HourlyChart from "./HourlyChart";
+import HourlySummaryTable from "./HourlySummaryTable";
 
 // Interface untuk DebugInfo
 interface DebugInfo {
@@ -51,57 +55,66 @@ const CallRecordsPage: React.FC = () => {
   const { user } = useAuth();
   const hasFullAccess = user?.roleId === 1 || user?.roleId === 2;
 
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [recordsResponse, setRecordsResponse] = useState<CallRecordsResponse | null>(null);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [recordsResponse, setRecordsResponse] =
+    useState<CallRecordsResponse | null>(null);
   const [records, setRecords] = useState<CallRecord[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeSection, setActiveSection] = useState<'records' | 'summary'>('summary');
+  const [activeSection, setActiveSection] = useState<"records" | "summary">(
+    "summary"
+  );
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>("");
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   // Query parameters state
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
     pageSize: 15,
-    search: '',
+    search: "",
     callCloseReason: undefined,
     hourGroup: undefined,
-    sortBy: 'calldate',
-    sortDir: 'desc'
+    sortBy: "calldate",
+    sortDir: "desc",
   });
 
   // Filter state
-  const [filterReason, setFilterReason] = useState<'all' | number>('all');
-  const [filterHour, setFilterHour] = useState<'all' | number>('all');
+  const [filterReason, setFilterReason] = useState<"all" | number>("all");
+  const [filterHour, setFilterHour] = useState<"all" | number>("all");
   const [showDebug, setShowDebug] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Load user data and permissions on component mount
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    const permissionsStr = localStorage.getItem('permissions');
-    
+    const userStr = localStorage.getItem("user");
+    const permissionsStr = localStorage.getItem("permissions");
+
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        setUserRole(user.roleName || '');
+        setUserRole(user.roleName || "");
       } catch (e) {
-        console.error('Error parsing user data:', e);
-        setUserRole('');
+        console.error("Error parsing user data:", e);
+        setUserRole("");
       }
     }
-    
+
     if (permissionsStr) {
       try {
         const permissions = JSON.parse(permissionsStr);
         setUserPermissions(permissions);
       } catch (e) {
-        console.error('Error parsing permissions:', e);
+        console.error("Error parsing permissions:", e);
         setUserPermissions([]);
       }
     }
@@ -109,21 +122,23 @@ const CallRecordsPage: React.FC = () => {
 
   // Load data when selected date or query params change
   useEffect(() => {
-    console.log('🔄 Loading data for date:', selectedDate, 'with params:', queryParams);
+    console.log(
+      "🔄 Loading data for date:",
+      selectedDate,
+      "with params:",
+      queryParams
+    );
     loadData();
   }, [selectedDate, queryParams]);
 
   const loadData = async () => {
     setError(null);
     setIsLoading(true);
-    
+
     try {
-      await Promise.all([
-        loadCallRecords(),
-        loadDailySummary()
-      ]);
+      await Promise.all([loadCallRecords(), loadDailySummary()]);
     } catch (err) {
-      console.error('❌ Error loading data:', err);
+      console.error("❌ Error loading data:", err);
     } finally {
       setIsLoading(false);
     }
@@ -134,13 +149,13 @@ const CallRecordsPage: React.FC = () => {
       console.log(`📡 Loading call records with params:`, {
         startDate: selectedDate,
         endDate: selectedDate,
-        ...queryParams
+        ...queryParams,
       });
 
       const response = await callRecordApi.getCallRecords(
-        selectedDate, 
-        selectedDate, 
-        queryParams.page, 
+        selectedDate,
+        selectedDate,
+        queryParams.page,
         queryParams.pageSize,
         queryParams.search,
         queryParams.callCloseReason,
@@ -148,25 +163,29 @@ const CallRecordsPage: React.FC = () => {
         queryParams.sortBy,
         queryParams.sortDir
       );
-      
-      console.log(`✅ Loaded ${response.data.data.length} records out of ${response.data.totalCount} total`);
-      
+
+      // ✅ FIXED: Backend returns { statusCode, message, data: CallRecord[], meta: { pagination } }
+      console.log(
+        `✅ Loaded ${response.data.length} records out of ${response.meta.pagination.totalCount} total`
+      );
+
       const newDebugInfo: DebugInfo = {
         selectedDate,
-        recordsCount: response.data.data.length,
-        sampleRecord: response.data.data[0] || null,
-        allRecords: response.data.data,
+        recordsCount: response.data.length,
+        sampleRecord: response.data[0] || null,
+        allRecords: response.data,
         timestamp: new Date().toISOString(),
-        apiResponse: response
+        apiResponse: response,
       };
-      
+
       setDebugInfo(newDebugInfo);
       setRecordsResponse(response);
-      setRecords(response.data.data);
+      setRecords(response.data);
     } catch (error: any) {
-      console.error('❌ Error loading call records:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-      
+      console.error("❌ Error loading call records:", error);
+      const errorMessage =
+        error.response?.data?.message || error.message || "Unknown error";
+
       const errorDebugInfo: DebugInfo = {
         selectedDate,
         recordsCount: 0,
@@ -174,9 +193,9 @@ const CallRecordsPage: React.FC = () => {
         allRecords: [],
         timestamp: new Date().toISOString(),
         error: errorMessage,
-        errorDetails: error.response?.data
+        errorDetails: error.response?.data,
       };
-      
+
       setDebugInfo(errorDebugInfo);
       setError(`Failed to load call records: ${errorMessage}`);
       setRecordsResponse(null);
@@ -188,68 +207,71 @@ const CallRecordsPage: React.FC = () => {
     try {
       console.log(`📡 Loading daily summary for: ${selectedDate}`);
       const summary = await callRecordApi.getDailySummary(selectedDate);
-      console.log('✅ Daily summary loaded:', summary);
+      console.log("✅ Daily summary loaded:", summary);
       setDailySummary(summary);
     } catch (error: any) {
-      console.error('❌ Error loading daily summary:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      console.error("❌ Error loading daily summary:", error);
+      const errorMessage =
+        error.response?.data?.message || error.message || "Unknown error";
       setError(`Failed to load daily summary: ${errorMessage}`);
       setDailySummary(null);
     }
   };
 
   // Check permissions
-  const hasDeletePermission = userPermissions.includes('callrecord.delete');
-  const canViewDetail = userPermissions.includes('callrecord.view') || userPermissions.includes('callrecord.view-any');
-  const canExportCSV = userPermissions.includes('callrecord.export-csv');
-  const canExportExcel = userPermissions.includes('callrecord.export-excel');
+  const hasDeletePermission = userPermissions.includes("callrecord.delete");
+  const canViewDetail =
+    userPermissions.includes("callrecord.view") ||
+    userPermissions.includes("callrecord.view-any");
+  const canExportCSV = userPermissions.includes("callrecord.export-csv");
+  const canExportExcel = userPermissions.includes("callrecord.export-excel");
 
   // Handler untuk search
   const handleSearch = (searchTerm: string) => {
-    setQueryParams(prev => ({
+    setQueryParams((prev) => ({
       ...prev,
       search: searchTerm,
-      page: 1
+      page: 1,
     }));
   };
 
   // Handler untuk filter reason
-  const handleFilterReason = (reason: 'all' | number) => {
+  const handleFilterReason = (reason: "all" | number) => {
     setFilterReason(reason);
-    setQueryParams(prev => ({
+    setQueryParams((prev) => ({
       ...prev,
-      callCloseReason: reason === 'all' ? undefined : reason,
-      page: 1
+      callCloseReason: reason === "all" ? undefined : reason,
+      page: 1,
     }));
   };
 
   // Handler untuk filter hour
-  const handleFilterHour = (hour: 'all' | number) => {
+  const handleFilterHour = (hour: "all" | number) => {
     setFilterHour(hour);
-    setQueryParams(prev => ({
+    setQueryParams((prev) => ({
       ...prev,
-      hourGroup: hour === 'all' ? undefined : hour,
-      page: 1
+      hourGroup: hour === "all" ? undefined : hour,
+      page: 1,
     }));
   };
 
   // Handler untuk sorting
   const handleSort = (field: string) => {
-    setQueryParams(prev => ({
+    setQueryParams((prev) => ({
       ...prev,
       sortBy: field,
-      sortDir: prev.sortBy === field && prev.sortDir === 'asc' ? 'desc' : 'asc',
-      page: 1
+      sortDir: prev.sortBy === field && prev.sortDir === "asc" ? "desc" : "asc",
+      page: 1,
     }));
   };
 
   // Handler untuk pagination
   const handlePageChange = (newPage: number) => {
-    setQueryParams(prev => ({
+    setQueryParams((prev) => ({
       ...prev,
-      page: newPage
+      page: newPage,
     }));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Export functions
@@ -270,49 +292,59 @@ const CallRecordsPage: React.FC = () => {
   };
 
   const handleDeleteRecords = async () => {
-    console.log('🗑️ DELETE DEBUG =================');
-    console.log('User Role:', userRole);
-    console.log('User Permissions:', userPermissions);
-    console.log('Has Delete Permission:', hasDeletePermission);
-    console.log('Records Count:', records.length);
-    console.log('Selected Date:', selectedDate);
+    console.log("🗑️ DELETE DEBUG =================");
+    console.log("User Role:", userRole);
+    console.log("User Permissions:", userPermissions);
+    console.log("Has Delete Permission:", hasDeletePermission);
+    console.log("Records Count:", records.length);
+    console.log("Selected Date:", selectedDate);
 
     if (!hasDeletePermission) {
-      alert('Access denied: You do not have permission to delete call records. Required permission: callrecord.delete');
+      alert(
+        "Access denied: You do not have permission to delete call records. Required permission: callrecord.delete"
+      );
       return;
     }
 
     if (records.length === 0) {
-      alert('No records to delete for selected date');
+      alert("No records to delete for selected date");
       return;
     }
 
-    if (window.confirm(`Are you sure you want to delete all call records for ${selectedDate}? This action cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete all call records for ${selectedDate}? This action cannot be undone.`
+      )
+    ) {
       try {
         setIsLoading(true);
-        console.log('🔄 Sending delete request...');
-        
+        console.log("🔄 Sending delete request...");
+
         const success = await callRecordApi.deleteCallRecords(selectedDate);
-        console.log('✅ Delete API returned:', success);
-        
+        console.log("✅ Delete API returned:", success);
+
         if (success) {
           alert(`Successfully deleted records for ${selectedDate}`);
           setRecords([]);
           setRecordsResponse(null);
           setDailySummary(null);
-          
-          setDebugInfo(prev => prev ? {
-            ...prev,
-            recordsCount: 0,
-            sampleRecord: null,
-            allRecords: [],
-            timestamp: new Date().toISOString()
-          } : null);
+
+          setDebugInfo((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  recordsCount: 0,
+                  sampleRecord: null,
+                  allRecords: [],
+                  timestamp: new Date().toISOString(),
+                }
+              : null
+          );
         } else {
-          alert('Delete operation failed - no records were deleted');
+          alert("Delete operation failed - no records were deleted");
         }
       } catch (error: any) {
-        console.error('❌ Delete error details:', error);
+        console.error("❌ Delete error details:", error);
       } finally {
         setIsLoading(false);
       }
@@ -322,45 +354,45 @@ const CallRecordsPage: React.FC = () => {
   // Helper function untuk mendapatkan close reason text
   const getCloseReasonText = (reasonCode: number) => {
     const reasons: { [key: number]: string } = {
-      0: 'TE Busy',
-      1: 'System Busy',
-      2: 'No Answer',
-      3: 'Not Found',
-      4: 'Complete',
-      5: 'Preempted',
-      6: 'Timeout',
-      7: 'Inactive',
-      8: 'Callback',
-      9: 'Unsupported Request',
-      10: 'Invalid Call'
+      0: "TE Busy",
+      1: "System Busy",
+      2: "No Answer",
+      3: "Not Found",
+      4: "Complete",
+      5: "Preempted",
+      6: "Timeout",
+      7: "Inactive",
+      8: "Callback",
+      9: "Unsupported Request",
+      10: "Invalid Call",
     };
     return reasons[reasonCode] || `Unknown (${reasonCode})`;
   };
 
   const getCloseReasonDescription = (reasonCode: number) => {
     const descriptions: { [key: number]: string } = {
-      0: 'The called terminal equipment is already in a call',
-      1: 'The network is overloaded or has problems',
-      2: 'The called party does not answer',
-      3: 'The ident of the called party is valid but it is either not registered or the node could not route the call',
-      4: 'The call was completed',
-      5: 'The call was cleared down to make a channel available for a priority or emergency call',
-      6: 'The call exceeded the current maximum call duration or the maximum allowable call setup time',
-      7: 'One or more of the parties was inactive. The inactivity timer expired',
-      8: 'The call to a line dispatcher terminal was put in the callback queue',
-      9: 'The call could not be processed because the system does not support it',
-      10: 'The call failed the node\'s validation check'
+      0: "The called terminal equipment is already in a call",
+      1: "The network is overloaded or has problems",
+      2: "The called party does not answer",
+      3: "The ident of the called party is valid but it is either not registered or the node could not route the call",
+      4: "The call was completed",
+      5: "The call was cleared down to make a channel available for a priority or emergency call",
+      6: "The call exceeded the current maximum call duration or the maximum allowable call setup time",
+      7: "One or more of the parties was inactive. The inactivity timer expired",
+      8: "The call to a line dispatcher terminal was put in the callback queue",
+      9: "The call could not be processed because the system does not support it",
+      10: "The call failed the node's validation check",
     };
-    return descriptions[reasonCode] || 'Unknown reason';
+    return descriptions[reasonCode] || "Unknown reason";
   };
 
   const formatDisplayDate = (date: string) => {
     try {
-      return new Date(date).toLocaleDateString('id-ID', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+      return new Date(date).toLocaleDateString("id-ID", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
     } catch (e) {
       return date;
@@ -372,11 +404,11 @@ const CallRecordsPage: React.FC = () => {
   };
 
   // Statistics untuk filter badges
-  const totalRecords = recordsResponse?.data?.totalCount || 0;
-  const currentPage = recordsResponse?.data?.page || 1;
-  const totalPages = recordsResponse?.data?.totalPages || 1;
-  const hasNext = recordsResponse?.data?.hasNext || false;
-  const hasPrevious = recordsResponse?.data?.hasPrevious || false;
+  const totalRecords = recordsResponse?.meta?.pagination?.totalCount || 0;
+  const currentPage = recordsResponse?.meta?.pagination?.page || 1;
+  const totalPages = recordsResponse?.meta?.pagination?.totalPages || 1;
+  const hasNext = recordsResponse?.meta?.pagination?.hasNext || false;
+  const hasPrevious = recordsResponse?.meta?.pagination?.hasPrevious || false;
 
   return (
     <div className="mx-auto flex-1 mt-10 md:mt-12 px-4 space-y-6">
@@ -386,7 +418,7 @@ const CallRecordsPage: React.FC = () => {
           <div className="flex items-center">
             <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
             <span className="text-red-700 font-medium">{error}</span>
-            <button 
+            <button
               onClick={() => setError(null)}
               className="ml-auto text-red-500 hover:text-red-700"
             >
@@ -402,13 +434,20 @@ const CallRecordsPage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Call Records</h1>
             <p className="text-gray-600 mt-1">
-              Data for: <span className="font-semibold text-blue-600">{formatDisplayDate(selectedDate)}</span>
+              Data for:{" "}
+              <span className="font-semibold text-blue-600">
+                {formatDisplayDate(selectedDate)}
+              </span>
               {userRole && (
-                <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-                  userRole === 'Super Admin' ? 'bg-purple-100 text-purple-800' :
-                  userRole === 'Admin' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                <span
+                  className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                    userRole === "Super Admin"
+                      ? "bg-purple-100 text-purple-800"
+                      : userRole === "Admin"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
                   Role: {userRole}
                 </span>
               )}
@@ -424,27 +463,29 @@ const CallRecordsPage: React.FC = () => {
                 className="bg-transparent border-none focus:ring-0 text-sm font-medium text-blue-700"
               />
             </div>
-            
+
             {/* Delete Button - HIDDEN UNTUK ROLE SELAIN 1 & 2 */}
             {hasFullAccess && (
-              <button 
+              <button
                 onClick={handleDeleteRecords}
-                disabled={records.length === 0 || !hasDeletePermission || isLoading}
+                disabled={
+                  records.length === 0 || !hasDeletePermission || isLoading
+                }
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center ${
-                  hasDeletePermission 
-                    ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed' 
-                    : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  hasDeletePermission
+                    ? "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    : "bg-gray-400 text-gray-200 cursor-not-allowed"
                 }`}
                 title={
-                  !hasDeletePermission 
-                    ? `Missing permission: callrecord.delete` 
-                    : records.length === 0 
-                      ? 'No records to delete' 
-                      : 'Delete all records for selected date'
+                  !hasDeletePermission
+                    ? `Missing permission: callrecord.delete`
+                    : records.length === 0
+                    ? "No records to delete"
+                    : "Delete all records for selected date"
                 }
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                {isLoading ? 'Deleting...' : 'Delete Records'}
+                {isLoading ? "Deleting..." : "Delete Records"}
               </button>
             )}
           </div>
@@ -456,21 +497,21 @@ const CallRecordsPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex space-x-4">
             <button
-              onClick={() => setActiveSection('summary')}
+              onClick={() => setActiveSection("summary")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeSection === 'summary'
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                activeSection === "summary"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
               📊 Daily Summary & Charts
             </button>
             <button
-              onClick={() => setActiveSection('records')}
+              onClick={() => setActiveSection("records")}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeSection === 'records'
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                activeSection === "records"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
               📋 Call Records ({totalRecords.toLocaleString()})
@@ -481,7 +522,9 @@ const CallRecordsPage: React.FC = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center">
             <BarChart3 className="w-5 h-5 text-blue-600 mr-2" />
-            <span className="text-blue-800 font-medium">Viewing Daily Summary & Charts</span>
+            <span className="text-blue-800 font-medium">
+              Viewing Daily Summary & Charts
+            </span>
           </div>
         </div>
       )}
@@ -489,8 +532,8 @@ const CallRecordsPage: React.FC = () => {
       {/* Content Sections */}
       {hasFullAccess ? (
         <>
-          {activeSection === 'records' && (
-            <CallRecordsSection 
+          {activeSection === "records" && (
+            <CallRecordsSection
               records={records}
               recordsResponse={recordsResponse}
               isLoading={isLoading}
@@ -516,8 +559,8 @@ const CallRecordsPage: React.FC = () => {
             />
           )}
 
-          {activeSection === 'summary' && (
-            <SummarySection 
+          {activeSection === "summary" && (
+            <SummarySection
               dailySummary={dailySummary}
               isLoading={isLoading}
               selectedDate={selectedDate}
@@ -525,7 +568,7 @@ const CallRecordsPage: React.FC = () => {
           )}
         </>
       ) : (
-        <SummarySection 
+        <SummarySection
           dailySummary={dailySummary}
           isLoading={isLoading}
           selectedDate={selectedDate}
@@ -542,10 +585,10 @@ const CallRecordsSection: React.FC<{
   isLoading: boolean;
   searchTerm: string;
   onSearchChange: (term: string) => void;
-  filterReason: 'all' | number;
-  onFilterReasonChange: (reason: 'all' | number) => void;
-  filterHour: 'all' | number;
-  onFilterHourChange: (hour: 'all' | number) => void;
+  filterReason: "all" | number;
+  onFilterReasonChange: (reason: "all" | number) => void;
+  filterHour: "all" | number;
+  onFilterHourChange: (hour: "all" | number) => void;
   sortBy: string;
   sortDir: string;
   onSort: (field: string) => void;
@@ -559,11 +602,11 @@ const CallRecordsSection: React.FC<{
   getCloseReasonText: (reasonCode: number) => string;
   getCloseReasonDescription: (reasonCode: number) => string;
   dailySummary: DailySummary | null; // TAMBAHAN
-}> = ({ 
-  records, 
-  recordsResponse, 
-  isLoading, 
-  searchTerm, 
+}> = ({
+  records,
+  recordsResponse,
+  isLoading,
+  searchTerm,
   onSearchChange,
   filterReason,
   onFilterReasonChange,
@@ -581,10 +624,10 @@ const CallRecordsSection: React.FC<{
   onToggleFilters,
   getCloseReasonText,
   getCloseReasonDescription,
-  dailySummary // TAMBAHAN
+  dailySummary, // TAMBAHAN
 }) => {
-  const totalRecords = recordsResponse?.data?.totalCount || 0;
-  const pageSize = recordsResponse?.data?.pageSize || 15;
+  const totalRecords = recordsResponse?.meta?.pagination?.totalCount || 0;
+  const pageSize = recordsResponse?.meta?.pagination?.pageSize || 15;
 
   // CALCULATE FILTERED STATS
   const getFilteredStats = () => {
@@ -594,7 +637,7 @@ const CallRecordsSection: React.FC<{
     let others = 0;
 
     // Jika tidak ada filter, gunakan total dari dailySummary
-    if (filterHour === 'all' && filterReason === 'all') {
+    if (filterHour === "all" && filterReason === "all") {
       if (dailySummary) {
         total = dailySummary.totalQty;
         teBusy = dailySummary.totalTEBusy;
@@ -605,8 +648,10 @@ const CallRecordsSection: React.FC<{
       // Ada filter aktif
       if (dailySummary && dailySummary.hourlyData) {
         // Filter berdasarkan Hour
-        if (filterHour !== 'all' && typeof filterHour === 'number') {
-          const hourData = dailySummary.hourlyData.find(h => h.hourGroup === filterHour);
+        if (filterHour !== "all" && typeof filterHour === "number") {
+          const hourData = dailySummary.hourlyData.find(
+            (h) => h.hourGroup === filterHour
+          );
           if (hourData) {
             total = hourData.qty;
             teBusy = hourData.teBusy;
@@ -622,7 +667,7 @@ const CallRecordsSection: React.FC<{
         }
 
         // Filter berdasarkan Reason
-        if (filterReason !== 'all' && typeof filterReason === 'number') {
+        if (filterReason !== "all" && typeof filterReason === "number") {
           if (filterReason === 0) {
             // Hanya TE Busy
             total = teBusy;
@@ -651,12 +696,16 @@ const CallRecordsSection: React.FC<{
   const filteredStats = getFilteredStats();
 
   // Check apakah ada filter aktif
-  const isFiltered = filterHour !== 'all' || filterReason !== 'all';
+  const isFiltered = filterHour !== "all" || filterReason !== "all";
   const filterLabel = [];
-  if (filterHour !== 'all') {
-    filterLabel.push(`Hour ${filterHour.toString().padStart(2, '0')}.00-${filterHour.toString().padStart(2, '0')}.59`);
+  if (filterHour !== "all") {
+    filterLabel.push(
+      `Hour ${filterHour.toString().padStart(2, "0")}.00-${filterHour
+        .toString()
+        .padStart(2, "0")}.59`
+    );
   }
-  if (filterReason !== 'all') {
+  if (filterReason !== "all") {
     filterLabel.push(getCloseReasonText(filterReason));
   }
 
@@ -669,13 +718,13 @@ const CallRecordsSection: React.FC<{
             <div className="flex items-center">
               <Filter className="w-4 h-4 text-blue-600 mr-2" />
               <span className="text-sm font-medium text-blue-800">
-                Active Filter: {filterLabel.join(' • ')}
+                Active Filter: {filterLabel.join(" • ")}
               </span>
             </div>
             <button
               onClick={() => {
-                onFilterHourChange('all');
-                onFilterReasonChange('all');
+                onFilterHourChange("all");
+                onFilterReasonChange("all");
               }}
               className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
             >
@@ -692,58 +741,72 @@ const CallRecordsSection: React.FC<{
             {filteredStats.total.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">Total Records</div>
-          {filterReason !== 'all' && typeof filterReason === 'number' && filterReason >= 2 && (
-            <div className="text-xs text-blue-600 mt-1">
-              {getCloseReasonText(filterReason)}
-            </div>
-          )}
+          {filterReason !== "all" &&
+            typeof filterReason === "number" &&
+            filterReason >= 2 && (
+              <div className="text-xs text-blue-600 mt-1">
+                {getCloseReasonText(filterReason)}
+              </div>
+            )}
         </div>
-        
-        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
-          filterReason !== 'all' && filterReason !== 0 ? 'opacity-50' : ''
-        }`}>
+
+        <div
+          className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+            filterReason !== "all" && filterReason !== 0 ? "opacity-50" : ""
+          }`}
+        >
           <div className="text-2xl font-bold text-red-600">
             {filteredStats.teBusy.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">TE Busy</div>
           {filteredStats.total > 0 && filteredStats.teBusy > 0 && (
             <div className="text-xs text-gray-500 mt-1">
-              ({((filteredStats.teBusy / filteredStats.total) * 100).toFixed(1)}%)
+              ({((filteredStats.teBusy / filteredStats.total) * 100).toFixed(1)}
+              %)
             </div>
           )}
         </div>
-        
-        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
-          filterReason !== 'all' && filterReason !== 1 ? 'opacity-50' : ''
-        }`}>
+
+        <div
+          className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+            filterReason !== "all" && filterReason !== 1 ? "opacity-50" : ""
+          }`}
+        >
           <div className="text-2xl font-bold text-yellow-600">
             {filteredStats.sysBusy.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">System Busy</div>
           {filteredStats.total > 0 && filteredStats.sysBusy > 0 && (
             <div className="text-xs text-gray-500 mt-1">
-              ({((filteredStats.sysBusy / filteredStats.total) * 100).toFixed(1)}%)
+              (
+              {((filteredStats.sysBusy / filteredStats.total) * 100).toFixed(1)}
+              %)
             </div>
           )}
         </div>
-        
-        <div className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
-          filterReason !== 'all' && filterReason < 2 ? 'opacity-50' : ''
-        }`}>
+
+        <div
+          className={`bg-white rounded-lg p-4 border border-gray-200 text-center hover:shadow-md transition-shadow ${
+            filterReason !== "all" && filterReason < 2 ? "opacity-50" : ""
+          }`}
+        >
           <div className="text-2xl font-bold text-green-600">
             {filteredStats.others.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">
             Others
-            {filterReason !== 'all' && typeof filterReason === 'number' && filterReason >= 2 && (
-              <span className="block text-xs text-green-600 mt-1">
-                ({getCloseReasonText(filterReason)})
-              </span>
-            )}
+            {filterReason !== "all" &&
+              typeof filterReason === "number" &&
+              filterReason >= 2 && (
+                <span className="block text-xs text-green-600 mt-1">
+                  ({getCloseReasonText(filterReason)})
+                </span>
+              )}
           </div>
           {filteredStats.total > 0 && filteredStats.others > 0 && (
             <div className="text-xs text-gray-500 mt-1">
-              ({((filteredStats.others / filteredStats.total) * 100).toFixed(1)}%)
+              ({((filteredStats.others / filteredStats.total) * 100).toFixed(1)}
+              %)
             </div>
           )}
         </div>
@@ -764,7 +827,7 @@ const CallRecordsSection: React.FC<{
               />
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             <button
               onClick={onToggleFilters}
@@ -772,7 +835,11 @@ const CallRecordsSection: React.FC<{
             >
               <Filter className="w-4 h-4 mr-2" />
               Filters
-              {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+              {showFilters ? (
+                <ChevronUp className="w-4 h-4 ml-1" />
+              ) : (
+                <ChevronDown className="w-4 h-4 ml-1" />
+              )}
             </button>
           </div>
         </div>
@@ -783,16 +850,23 @@ const CallRecordsSection: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Hour Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Hour</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Hour
+                </label>
                 <select
-                  value={filterHour === 'all' ? 'all' : filterHour}
-                  onChange={(e) => onFilterHourChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  value={filterHour === "all" ? "all" : filterHour}
+                  onChange={(e) =>
+                    onFilterHourChange(
+                      e.target.value === "all" ? "all" : Number(e.target.value)
+                    )
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Hours</option>
                   {Array.from({ length: 24 }, (_, i) => (
                     <option key={i} value={i}>
-                      {i.toString().padStart(2, '0')}.00 - {i.toString().padStart(2, '0')}.59
+                      {i.toString().padStart(2, "0")}.00 -{" "}
+                      {i.toString().padStart(2, "0")}.59
                     </option>
                   ))}
                 </select>
@@ -800,10 +874,16 @@ const CallRecordsSection: React.FC<{
 
               {/* Reason Filter dengan semua 11 options */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Reason</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Reason
+                </label>
                 <select
-                  value={filterReason === 'all' ? 'all' : filterReason}
-                  onChange={(e) => onFilterReasonChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  value={filterReason === "all" ? "all" : filterReason}
+                  onChange={(e) =>
+                    onFilterReasonChange(
+                      e.target.value === "all" ? "all" : Number(e.target.value)
+                    )
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Reasons</option>
@@ -834,11 +914,12 @@ const CallRecordsSection: React.FC<{
                 Call Records Data
               </h3>
               <p className="text-xs text-gray-600 mt-1 truncate">
-                Showing {records.length} of {totalRecords.toLocaleString()} records
+                Showing {records.length} of {totalRecords.toLocaleString()}{" "}
+                records
                 {searchTerm && ` • Searching for "${searchTerm}"`}
               </p>
             </div>
-            
+
             <div className="flex-shrink-0">
               <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                 Page {currentPage} of {totalPages}
@@ -872,13 +953,18 @@ const CallRecordsSection: React.FC<{
                   <td colSpan={4} className="px-4 py-8 text-center">
                     <div className="flex justify-center items-center space-x-2">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                      <span className="text-gray-500 text-sm">Loading records...</span>
+                      <span className="text-gray-500 text-sm">
+                        Loading records...
+                      </span>
                     </div>
                   </td>
                 </tr>
               ) : records.length > 0 ? (
                 records.map((record, index) => (
-                  <tr key={`${record.callRecordId}-${index}`} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={`${record.callRecordId}-${index}`}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-600 font-mono">
                       {record.callTime}
                     </td>
@@ -886,11 +972,15 @@ const CallRecordsSection: React.FC<{
                       {record.callCloseReason}
                     </td>
                     <td className="px-3 py-3 text-xs max-w-[150px]">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${
-                        record.callCloseReason === 0 ? 'bg-red-100 text-red-800 border-red-200' :
-                        record.callCloseReason === 1 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                        'bg-green-100 text-green-800 border-green-200'
-                      }`}>
+                      <span
+                        className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${
+                          record.callCloseReason === 0
+                            ? "bg-red-100 text-red-800 border-red-200"
+                            : record.callCloseReason === 1
+                            ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                            : "bg-green-100 text-green-800 border-green-200"
+                        }`}
+                      >
                         {getCloseReasonText(record.callCloseReason)}
                       </span>
                       <div className="mt-1 text-gray-600 line-clamp-2">
@@ -909,12 +999,15 @@ const CallRecordsSection: React.FC<{
                   <td colSpan={4} className="px-4 py-8 text-center">
                     <div className="flex flex-col items-center justify-center py-4">
                       <Phone className="w-12 h-12 text-gray-300 mb-3" />
-                      <p className="text-sm font-medium text-gray-900 mb-1">No call records found</p>
+                      <p className="text-sm font-medium text-gray-900 mb-1">
+                        No call records found
+                      </p>
                       <p className="text-xs text-gray-600 text-center max-w-xs">
-                        {searchTerm || filterReason !== 'all' || filterHour !== 'all' 
-                          ? 'No records match your search or filter criteria.' 
-                          : 'No data available for the selected date.'
-                        }
+                        {searchTerm ||
+                        filterReason !== "all" ||
+                        filterHour !== "all"
+                          ? "No records match your search or filter criteria."
+                          : "No data available for the selected date."}
                       </p>
                     </div>
                   </td>
@@ -929,11 +1022,20 @@ const CallRecordsSection: React.FC<{
           <div className="bg-white px-4 py-3 border-t border-gray-200">
             <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
               <div className="text-xs text-gray-700 text-center xs:text-left">
-                Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> of{' '}
-                <span className="font-medium">{totalRecords.toLocaleString()}</span>
+                Showing{" "}
+                <span className="font-medium">
+                  {(currentPage - 1) * pageSize + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * pageSize, totalRecords)}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium">
+                  {totalRecords.toLocaleString()}
+                </span>
               </div>
-              
+
               <div className="flex items-center justify-center space-x-1">
                 <button
                   onClick={() => onPageChange(currentPage - 1)}
@@ -942,25 +1044,25 @@ const CallRecordsSection: React.FC<{
                 >
                   <ChevronLeft className="w-3 h-3" />
                 </button>
-                
+
                 <div className="flex items-center space-x-1">
                   {[currentPage - 1, currentPage, currentPage + 1]
-                    .filter(page => page >= 1 && page <= totalPages)
-                    .map(page => (
+                    .filter((page) => page >= 1 && page <= totalPages)
+                    .map((page) => (
                       <button
                         key={page}
                         onClick={() => onPageChange(page)}
                         className={`px-2 py-1 border text-xs font-medium min-w-[32px] ${
                           currentPage === page
-                            ? 'border-blue-500 bg-blue-500 text-white'
-                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                            ? "border-blue-500 bg-blue-500 text-white"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                         } rounded`}
                       >
                         {page}
                       </button>
                     ))}
                 </div>
-                
+
                 <button
                   onClick={() => onPageChange(currentPage + 1)}
                   disabled={!hasNext}
@@ -988,7 +1090,9 @@ const SummarySection: React.FC<{
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
         <div className="flex justify-center items-center space-x-3">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-          <span className="text-gray-600 font-medium">Loading summary data...</span>
+          <span className="text-gray-600 font-medium">
+            Loading summary data...
+          </span>
         </div>
       </div>
     );
@@ -998,8 +1102,12 @@ const SummarySection: React.FC<{
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
         <BarChart3 className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-        <p className="text-gray-600 text-lg font-medium mb-2">No summary data available</p>
-        <p className="text-gray-500 text-sm">Select a date with data to view summary</p>
+        <p className="text-gray-600 text-lg font-medium mb-2">
+          No summary data available
+        </p>
+        <p className="text-gray-500 text-sm">
+          Select a date with data to view summary
+        </p>
       </div>
     );
   }
@@ -1010,13 +1118,16 @@ const SummarySection: React.FC<{
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Daily Call Summary</h2>
+            <h2 className="text-xl font-bold text-gray-900">
+              Daily Call Summary
+            </h2>
             <p className="text-gray-600 mt-1">
-              Overview for {new Date(selectedDate).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              Overview for{" "}
+              {new Date(selectedDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
               })}
             </p>
           </div>
@@ -1037,21 +1148,27 @@ const SummarySection: React.FC<{
         />
         <StatCard
           title="TE Busy"
-          value={`${dailySummary.totalTEBusy.toLocaleString()} (${dailySummary.avgTEBusyPercent}%)`}
+          value={`${dailySummary.totalTEBusy.toLocaleString()} (${
+            dailySummary.avgTEBusyPercent
+          }%)`}
           icon={PhoneOff}
           color="red"
           description="Terminal Equipment busy"
         />
         <StatCard
           title="System Busy"
-          value={`${dailySummary.totalSysBusy.toLocaleString()} (${dailySummary.avgSysBusyPercent}%)`}
+          value={`${dailySummary.totalSysBusy.toLocaleString()} (${
+            dailySummary.avgSysBusyPercent
+          }%)`}
           icon={PhoneMissed}
           color="yellow"
           description="System capacity busy"
         />
         <StatCard
           title="Others"
-          value={`${dailySummary.totalOthers.toLocaleString()} (${dailySummary.avgOthersPercent}%)`}
+          value={`${dailySummary.totalOthers.toLocaleString()} (${
+            dailySummary.avgOthersPercent
+          }%)`}
           icon={TrendingUp}
           color="green"
           description="Other call outcomes"
@@ -1064,7 +1181,9 @@ const SummarySection: React.FC<{
           {/* Hourly Chart */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Call Distribution by Hour</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Call Distribution by Hour
+              </h3>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <BarChart3 className="w-4 h-4" />
                 <span>24-hour overview</span>
@@ -1076,7 +1195,9 @@ const SummarySection: React.FC<{
           {/* Hourly Summary Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Hourly Detailed Summary</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Hourly Detailed Summary
+              </h3>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <TrendingUp className="w-4 h-4" />
                 <span>Breakdown by hour</span>
@@ -1095,64 +1216,72 @@ const StatCard: React.FC<{
   title: string;
   value: string;
   icon: React.ElementType;
-  color: 'blue' | 'red' | 'yellow' | 'green';
+  color: "blue" | "red" | "yellow" | "green";
   description: string;
 }> = ({ title, value, icon: Icon, color, description }) => {
   const colorConfig = {
     blue: {
-      bg: 'bg-blue-50',
-      iconBg: 'bg-blue-500',
-      text: 'text-blue-700',
-      valueText: 'text-blue-900',
-      border: 'border-blue-100'
+      bg: "bg-blue-50",
+      iconBg: "bg-blue-500",
+      text: "text-blue-700",
+      valueText: "text-blue-900",
+      border: "border-blue-100",
     },
     red: {
-      bg: 'bg-red-50',
-      iconBg: 'bg-red-500',
-      text: 'text-red-700',
-      valueText: 'text-red-900',
-      border: 'border-red-100'
+      bg: "bg-red-50",
+      iconBg: "bg-red-500",
+      text: "text-red-700",
+      valueText: "text-red-900",
+      border: "border-red-100",
     },
     yellow: {
-      bg: 'bg-yellow-50',
-      iconBg: 'bg-yellow-500',
-      text: 'text-yellow-700',
-      valueText: 'text-yellow-900',
-      border: 'border-yellow-100'
+      bg: "bg-yellow-50",
+      iconBg: "bg-yellow-500",
+      text: "text-yellow-700",
+      valueText: "text-yellow-900",
+      border: "border-yellow-100",
     },
     green: {
-      bg: 'bg-green-50',
-      iconBg: 'bg-green-500',
-      text: 'text-green-700',
-      valueText: 'text-green-900',
-      border: 'border-green-100'
-    }
+      bg: "bg-green-50",
+      iconBg: "bg-green-500",
+      text: "text-green-700",
+      valueText: "text-green-900",
+      border: "border-green-100",
+    },
   };
 
   const config = colorConfig[color];
 
   return (
-    <div className={`relative rounded-2xl border ${config.border} ${config.bg} p-6 hover:shadow-lg transition-all duration-300 hover:translate-y-[-2px] group overflow-hidden`}>
+    <div
+      className={`relative rounded-2xl border ${config.border} ${config.bg} p-6 hover:shadow-lg transition-all duration-300 hover:translate-y-[-2px] group overflow-hidden`}
+    >
       {/* Background accent */}
-      <div className={`absolute top-0 left-0 w-1 h-full ${config.iconBg}`}></div>
-      
+      <div
+        className={`absolute top-0 left-0 w-1 h-full ${config.iconBg}`}
+      ></div>
+
       <div className="flex items-start space-x-4">
         {/* Icon */}
-        <div className={`p-3 rounded-xl ${config.iconBg} text-white shadow-sm group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
+        <div
+          className={`p-3 rounded-xl ${config.iconBg} text-white shadow-sm group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}
+        >
           <Icon className="w-5 h-5" />
         </div>
-        
+
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-semibold ${config.text} mb-1 uppercase tracking-wide`}>
+          <p
+            className={`text-sm font-semibold ${config.text} mb-1 uppercase tracking-wide`}
+          >
             {title}
           </p>
-          <p className={`text-2xl font-bold ${config.valueText} mb-2 leading-tight`}>
+          <p
+            className={`text-2xl font-bold ${config.valueText} mb-2 leading-tight`}
+          >
             {value}
           </p>
-          <p className="text-xs text-gray-600 leading-relaxed">
-            {description}
-          </p>
+          <p className="text-xs text-gray-600 leading-relaxed">{description}</p>
         </div>
       </div>
     </div>

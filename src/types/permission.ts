@@ -22,7 +22,7 @@ export interface PermissionStatus {
   permissionId: number;
   permissionName: string;
   permissionGroup: string | null;
-  isAssigned: boolean;  // ✅ Backend uses isAssigned, NOT hasPermission
+  isAssigned: boolean; // ✅ Backend uses isAssigned, NOT hasPermission
 }
 
 // ✅ MATCH BACKEND RolePermissionMatrixDto
