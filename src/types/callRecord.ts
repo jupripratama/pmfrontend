@@ -1,6 +1,7 @@
+// types/callRecord.ts - FIXED VERSION
+
 export interface CallRecord {
   callRecordId: number;
-  callDate: string;
   callTime: string;
   callCloseReason: number;
   closeReasonDescription: string;
@@ -33,34 +34,40 @@ export interface HourlySummary {
   othersPercent: number;
 }
 
-export interface UploadCsvResponse {
-  totalRecords: number;
+// ✅ FIXED: Match backend ImportResult
+export interface ImportResult {
   successfulRecords: number;
   failedRecords: number;
   errors: string[];
-  uploadTime: string;
 }
 
-// Tambahkan interface untuk API response jika perlu
+// ✅ FIXED: Match backend upload response
+export interface UploadCsvResponse {
+  records: ImportResult;
+  totalTimeMs: number;
+}
+
+// ✅ FIXED: Match actual backend response structure
 export interface CallRecordsResponse {
   statusCode: number;
   message: string;
-  data: {
-    data: CallRecord[];
-    page: number;
-    pageSize: number;
-    totalCount: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrevious: boolean;
+  data: CallRecord[]; // ✅ Direct array, not nested object
+  meta: {
+    pagination: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrevious: boolean;
+    };
   };
-  meta: any;
 }
 
 export enum FleetStatisticType {
-  All = 'All',
-  Caller = 'Caller',
-  Called = 'Called'
+  All = "All",
+  Caller = "Caller",
+  Called = "Called",
 }
 
 export interface TopCallerFleetDto {
