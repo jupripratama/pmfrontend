@@ -1,16 +1,16 @@
-// services/api.ts - UPDATED WITH EXTENDED TIMEOUT FOR CSV IMPORT
+// services/api.ts - CLEAN VERSION FOR CAMELCASE BACKEND
 
 import axios from "axios";
 import { LoginRequest, User } from "../types/auth";
 import {
   DailySummary,
   UploadCsvResponse,
+  CallRecord,
   CallRecordsResponse,
   FleetStatisticType,
   FleetStatisticsDto,
 } from "../types/callRecord";
 import {
-  AssignPermissionsRequest,
   CreatePermissionRequest,
   CreateRoleRequest,
   Permission,
@@ -22,87 +22,54 @@ import {
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (import.meta.env.DEV) {
-    return "";
+    // Development: tetap pakai localhost
+    return "http://localhost:5116";
   }
-  return (
-    import.meta.env.VITE_API_URL || "https://pm-mkn-production.up.railway.app"
-  );
+  // Production: ganti dengan domain baru
+  return import.meta.env.VITE_API_URL || "http://apimkn.duckdns.org";
 };
-
 // ✅ DEFAULT API INSTANCE (60 second timeout)
 export const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 60000, // 60 seconds for normal operations
+  timeout: 60000,
   withCredentials: false,
 });
 
-// ✅ NEW: LONG RUNNING API INSTANCE (5 minute timeout for CSV import)
+// ✅ LONG RUNNING API INSTANCE (5 minute timeout for CSV import)
 export const apiLongRunning = axios.create({
   baseURL: getBaseURL(),
-  timeout: 300000, // 5 MINUTES (300 seconds) for long operations
+  timeout: 300000,
   withCredentials: false,
 });
 
-// Enhanced request interceptor for DEFAULT API
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (!config.headers["Content-Type"]) {
-      config.headers["Content-Type"] = "application/json";
-    }
-
-    console.log("🚀 API Request:", {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      headers: config.headers,
-    });
-
-    return config;
-  },
-  (error) => {
-    console.error("❌ Request Interceptor Error:", error);
-    return Promise.reject(error);
+// Request interceptor
+const requestInterceptor = (config: any) => {
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
 
-// ✅ SAME INTERCEPTOR FOR LONG RUNNING API
-apiLongRunning.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (!config.headers["Content-Type"]) {
-      config.headers["Content-Type"] = "application/json";
-    }
-
-    console.log("🚀 Long Running API Request:", {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      timeout: "5 minutes",
-    });
-
-    return config;
-  },
-  (error) => {
-    console.error("❌ Request Interceptor Error:", error);
-    return Promise.reject(error);
+  if (!config.headers["Content-Type"]) {
+    config.headers["Content-Type"] = "application/json";
   }
-);
 
-// Enhanced response interceptor for both instances
+  console.log("🚀 API Request:", {
+    method: config.method?.toUpperCase(),
+    url: config.url,
+    baseURL: config.baseURL,
+  });
+
+  return config;
+};
+
+// Response interceptor
 const responseInterceptor = (response: any) => {
   console.log("✅ API Response Success:", {
     status: response.status,
     url: response.config.url,
+    data: response.data,
   });
+
   return response;
 };
 
@@ -112,7 +79,7 @@ const errorInterceptor = (error: any) => {
     message: error.message,
     code: error.code,
     url: error.config?.url,
-    config: error.config,
+    response: error.response?.data,
   });
 
   if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
@@ -138,7 +105,14 @@ const errorInterceptor = (error: any) => {
   return Promise.reject(error);
 };
 
-// Apply interceptors to both instances
+// Apply interceptors
+api.interceptors.request.use(requestInterceptor, (error) =>
+  Promise.reject(error)
+);
+apiLongRunning.interceptors.request.use(requestInterceptor, (error) =>
+  Promise.reject(error)
+);
+
 api.interceptors.response.use(responseInterceptor, errorInterceptor);
 apiLongRunning.interceptors.response.use(responseInterceptor, errorInterceptor);
 
@@ -167,7 +141,10 @@ export const testConnection = async (): Promise<{
   }
 };
 
-// Auth API functions
+// ============================================
+// AUTH API
+// ============================================
+
 export const authApi = {
   login: async (credentials: LoginRequest) => {
     try {
@@ -176,12 +153,20 @@ export const authApi = {
       const response = await api.post("/api/auth/login", credentials);
       console.log("🔐 Login response received:", response.data);
 
+      // ✅ Backend now returns camelCase: { statusCode, message, data: { token, user, permissions }, meta }
       const data = response.data.data;
 
-      // Save token and user data
+      if (!data || !data.token || !data.user) {
+        console.error("❌ Invalid response structure:", response.data);
+        throw new Error("Invalid response structure from server");
+      }
+
       localStorage.setItem("authToken", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("permissions", JSON.stringify(data.permissions));
+      localStorage.setItem(
+        "permissions",
+        JSON.stringify(data.permissions || [])
+      );
 
       console.log("🔐 Login successful, user:", data.user.fullName);
       return data;
@@ -195,8 +180,8 @@ export const authApi = {
       }
 
       const errorMessage =
+        error.response?.data?.data?.message ||
         error.response?.data?.message ||
-        error.response?.data?.error ||
         error.message;
       throw new Error(errorMessage || "Login failed");
     }
@@ -207,22 +192,13 @@ export const authApi = {
     const response = await api.get("/api/auth/profile");
     console.log("✅ Profile response:", response.data);
 
-    let userData: User;
-
-    if (response.data.data) {
-      userData = response.data.data;
-    } else {
-      userData = response.data;
-    }
-
-    console.log("✅ Extracted user data:", userData);
+    const userData = response.data.data;
 
     if (!userData || !userData.userId) {
       throw new Error("Invalid user data received from server");
     }
 
     localStorage.setItem("user", JSON.stringify(userData));
-
     return userData;
   },
 
@@ -243,13 +219,7 @@ export const authApi = {
 
     console.log("📤 Photo upload response:", response.data);
 
-    let photoUrl: string;
-
-    if (response.data.data) {
-      photoUrl = response.data.data.photoUrl || response.data.data;
-    } else {
-      photoUrl = response.data.photoUrl || response.data;
-    }
+    const photoUrl = response.data.data?.photoUrl;
 
     if (!photoUrl) {
       console.error("❌ No photoUrl in response:", response.data);
@@ -257,7 +227,6 @@ export const authApi = {
     }
 
     console.log("✅ Photo uploaded successfully:", photoUrl);
-
     return { photoUrl };
   },
 
@@ -278,9 +247,7 @@ export const authApi = {
     const response = await api.put(`/api/users/${userId}`, profileData);
     console.log("✅ Profile updated:", response.data);
 
-    const updatedUser = response.data.data;
-
-    return updatedUser;
+    return response.data.data;
   },
 
   getPermissions: (): string[] => {
@@ -308,14 +275,7 @@ export const authApi = {
       fullName: userData.fullName,
     };
 
-    console.log("📦 Request payload (with confirmPassword):", {
-      ...requestData,
-      password: "***",
-      confirmPassword: "***",
-    });
-
     const response = await api.post("/api/auth/register", requestData);
-
     console.log("✅ Register response:", response.data);
     return response.data;
   },
@@ -352,13 +312,17 @@ export const authApi = {
   },
 };
 
-// Call Record API functions
+// ============================================
+// CALL RECORD API
+// ============================================
+
 export const callRecordApi = {
   getDailySummary: async (date: string): Promise<DailySummary> => {
     try {
       console.log("📡 API Call: getDailySummary", { date });
       const response = await api.get(`/api/call-records/summary/daily/${date}`);
-      console.log("📊 Daily Summary Data:", response.data.data);
+      console.log("📊 Daily Summary Data:", response.data);
+
       return response.data.data;
     } catch (error: any) {
       console.error("❌ Error loading daily summary:", error);
@@ -399,11 +363,6 @@ export const callRecordApi = {
         endDate,
         page,
         pageSize,
-        search,
-        callCloseReason,
-        hourGroup,
-        sortBy,
-        sortDir,
       });
 
       const params: any = {
@@ -422,13 +381,9 @@ export const callRecordApi = {
 
       const response = await api.get("/api/call-records", { params });
 
-      console.log("📊 Call Records Response:", {
-        totalCount: response.data.data?.totalCount,
-        page: response.data.data?.page,
-        totalPages: response.data.data?.totalPages,
-        recordsCount: response.data.data?.data?.length,
-      });
+      console.log("📊 Call Records Response:", response.data);
 
+      // ✅ Backend returns: { statusCode, message, data: CallRecord[], meta: { pagination } }
       return response.data;
     } catch (error: any) {
       console.error("❌ Error fetching call records:", error);
@@ -437,7 +392,6 @@ export const callRecordApi = {
     }
   },
 
-  // ✅ UPDATED: importCsv now uses apiLongRunning with 5 minute timeout
   importCsv: async (
     file: File,
     onProgress?: (progress: number) => void
@@ -447,15 +401,7 @@ export const callRecordApi = {
       formData.append("file", file);
 
       console.log("📤 Starting CSV import with 5 minute timeout...");
-      console.log(
-        "📦 File:",
-        file.name,
-        "Size:",
-        (file.size / 1024 / 1024).toFixed(2),
-        "MB"
-      );
 
-      // ✅ USE apiLongRunning instead of api
       const response = await apiLongRunning.post(
         "/api/call-records/import-csv",
         formData,
@@ -472,19 +418,19 @@ export const callRecordApi = {
               onProgress?.(percentCompleted);
             }
           },
-          // ✅ Explicit 5 minute timeout (already set in apiLongRunning, but can override)
           timeout: 300000,
         }
       );
 
       console.log("✅ CSV import completed:", response.data);
+
       return response.data.data;
     } catch (error: any) {
       console.error("❌ Error importing CSV:", error);
 
       if (error.code === "ECONNABORTED") {
         throw new Error(
-          "Upload timeout - File terlalu besar atau koneksi lambat. Coba lagi dengan file yang lebih kecil."
+          "Upload timeout - File terlalu besar atau koneksi lambat."
         );
       }
 
@@ -606,14 +552,7 @@ export const callRecordApi = {
 
       console.log("📊 Delete API Response:", response.data);
 
-      if (response.data?.data?.deleted !== undefined) {
-        return response.data.data.deleted;
-      } else if (response.data?.deleted !== undefined) {
-        return response.data.deleted;
-      } else {
-        console.warn("❓ Unknown delete response structure:", response.data);
-        return false;
-      }
+      return response.data.data?.deleted === true;
     } catch (error: any) {
       console.error("❌ Error deleting records:", error);
 
@@ -648,7 +587,7 @@ export const callRecordApi = {
       const response = await api.get("/api/call-records/fleet-statistics", {
         params,
       });
-      console.log("📊 Fleet Statistics Data:", response.data.data);
+      console.log("📊 Fleet Statistics Data:", response.data);
 
       return response.data.data;
     } catch (error: any) {
@@ -659,7 +598,10 @@ export const callRecordApi = {
   },
 };
 
-// Permission APIs
+// ============================================
+// PERMISSION API
+// ============================================
+
 export const permissionApi = {
   getAll: async (): Promise<Permission[]> => {
     const response = await api.get("/api/permissions");
@@ -689,7 +631,10 @@ export const permissionApi = {
   },
 };
 
-// Role APIs
+// ============================================
+// ROLE API
+// ============================================
+
 export const roleApi = {
   getAll: async (): Promise<Role[]> => {
     const response = await api.get("/api/roles");
@@ -716,7 +661,10 @@ export const roleApi = {
   },
 };
 
-// Role-Permission APIs
+// ============================================
+// ROLE-PERMISSION API
+// ============================================
+
 export const rolePermissionApi = {
   getMatrix: async (): Promise<RolePermissionMatrix[]> => {
     const response = await api.get("/api/role-permissions/matrix");
@@ -745,40 +693,43 @@ export const rolePermissionApi = {
   },
 };
 
-// User Management APIs
+// ============================================
+// USER MANAGEMENT API
+// ============================================
+
 export const userApi = {
   getAll: async (): Promise<User[]> => {
     console.log("📡 Fetching all users...");
     const response = await api.get("/api/users");
-    console.log("✅ Users fetched:", response.data.data);
+    console.log("✅ Users fetched:", response.data);
     return response.data.data;
   },
 
   getById: async (id: number): Promise<User> => {
     console.log("📡 Fetching user by ID:", id);
     const response = await api.get(`/api/users/${id}`);
-    console.log("✅ User fetched:", response.data.data);
+    console.log("✅ User fetched:", response.data);
     return response.data.data;
   },
 
   updateRole: async (userId: number, roleId: number): Promise<User> => {
     console.log("📝 Updating user role:", { userId, roleId });
     const response = await api.patch(`/api/users/${userId}/role`, { roleId });
-    console.log("✅ User role updated:", response.data.data);
+    console.log("✅ User role updated:", response.data);
     return response.data.data;
   },
 
   activateUser: async (userId: number): Promise<User> => {
     console.log("✅ Activating user:", userId);
     const response = await api.patch(`/api/users/${userId}/activate`);
-    console.log("✅ User activated:", response.data.data);
+    console.log("✅ User activated:", response.data);
     return response.data.data;
   },
 
   deactivateUser: async (userId: number): Promise<User> => {
     console.log("🚫 Deactivating user:", userId);
     const response = await api.patch(`/api/users/${userId}/deactivate`);
-    console.log("✅ User deactivated:", response.data.data);
+    console.log("✅ User deactivated:", response.data);
     return response.data.data;
   },
 

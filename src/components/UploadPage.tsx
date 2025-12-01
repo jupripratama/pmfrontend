@@ -23,7 +23,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadCsvResponse | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadCsvResponse | null>(
+    null
+  );
 
   // Animation variants
   const containerVariants = {
@@ -31,9 +33,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1,
+      },
+    },
   };
 
   const itemVariants = {
@@ -43,24 +45,24 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
       y: 0,
       transition: {
         duration: 0.6,
-       ease: cubicBezier(0.25, 0.46, 0.45, 0.94)
-      }
-    }
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
+      },
+    },
   };
 
   const cardHoverVariants = {
-    rest: { 
+    rest: {
       scale: 1,
       y: 0,
     },
-    hover: { 
+    hover: {
       scale: 1.02,
       y: -4,
       transition: {
         duration: 0.3,
-       ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
-      }
-    }
+        ease: cubicBezier(0.25, 0.46, 0.45, 0.94),
+      },
+    },
   };
 
   const pulseVariants = {
@@ -69,10 +71,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
       transition: {
         duration: 2,
         repeat: Infinity,
-       
-        ease: cubicBezier(0.4, 0, 0.6, 1)
-      }
-    }
+
+        ease: cubicBezier(0.4, 0, 0.6, 1),
+      },
+    },
   };
 
   const handleBack = () => {
@@ -135,7 +137,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
           </motion.button>
 
           <div className="flex-1 text-center">
-            <motion.h1 
+            <motion.h1
               className="text-3xl font-bold text-gray-900"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -143,7 +145,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
             >
               Upload Data File
             </motion.h1>
-            <motion.p 
+            <motion.p
               className="text-gray-500 mt-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -181,7 +183,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            onClick={() => !isUploading && document.getElementById("file-input")?.click()}
+            onClick={() =>
+              !isUploading && document.getElementById("file-input")?.click()
+            }
           >
             <input
               id="file-input"
@@ -203,7 +207,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                 >
                   <motion.div
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                     className="rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4 flex items-center justify-center"
                   >
                     <Loader2 className="w-8 h-8 text-blue-500" />
@@ -277,7 +285,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                 exit={{ opacity: 0, y: -20, scale: 0.95 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 className={`mt-8 p-6 rounded-2xl border shadow-sm ${
-                  uploadResult.successfulRecords > 0
+                  uploadResult.records.successfulRecords > 0
                     ? "bg-green-50 border-green-200"
                     : "bg-red-50 border-red-200"
                 }`}
@@ -287,17 +295,17 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
                   className={`text-lg font-semibold mb-4 ${
-                    uploadResult.successfulRecords > 0
+                    uploadResult.records.successfulRecords > 0
                       ? "text-green-800"
                       : "text-red-800"
                   }`}
                 >
-                  {uploadResult.successfulRecords > 0
+                  {uploadResult.records.successfulRecords > 0
                     ? "Upload Successful!"
                     : "Upload Completed with Issues"}
                 </motion.h3>
 
-                <motion.div 
+                <motion.div
                   className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -311,10 +319,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                   >
                     <div className="font-semibold">Successful</div>
                     <div className="text-2xl font-bold">
-                      {uploadResult.successfulRecords.toLocaleString()}
+                      {uploadResult.records.successfulRecords.toLocaleString()}
                     </div>
                   </motion.div>
-                  {uploadResult.failedRecords > 0 && (
+                  {uploadResult.records.failedRecords > 0 && (
                     <motion.div
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -323,7 +331,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                     >
                       <div className="font-semibold">Failed</div>
                       <div className="text-2xl font-bold">
-                        {uploadResult.failedRecords.toLocaleString()}
+                        {uploadResult.totalTimeMs}ms
                       </div>
                     </motion.div>
                   )}
@@ -335,7 +343,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
                   >
                     <div className="font-semibold">Total</div>
                     <div className="text-2xl font-bold">
-                      {uploadResult.totalRecords.toLocaleString()}
+                      {(
+                        uploadResult.records.successfulRecords +
+                        uploadResult.records.failedRecords
+                      ).toLocaleString()}
                     </div>
                   </motion.div>
                 </motion.div>
@@ -349,7 +360,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
           variants={itemVariants}
           className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm"
         >
-          <motion.h3 
+          <motion.h3
             className="text-lg font-semibold text-gray-900 mb-4 flex items-center"
             whileHover={{ x: 5 }}
             transition={{ type: "spring", stiffness: 400 }}
@@ -358,9 +369,21 @@ const UploadPage: React.FC<UploadPageProps> = ({ onBack, setActiveTab }) => {
           </motion.h3>
           <motion.ul className="space-y-3 text-sm">
             {[
-              { text: "CSV format with comma separator", icon: CheckCircle, color: "text-green-600" },
-              { text: "Max file size: 100MB", icon: CheckCircle, color: "text-green-600" },
-              { text: "File will be validated before import", icon: AlertCircle, color: "text-amber-600" }
+              {
+                text: "CSV format with comma separator",
+                icon: CheckCircle,
+                color: "text-green-600",
+              },
+              {
+                text: "Max file size: 100MB",
+                icon: CheckCircle,
+                color: "text-green-600",
+              },
+              {
+                text: "File will be validated before import",
+                icon: AlertCircle,
+                color: "text-amber-600",
+              },
             ].map((item, index) => (
               <motion.li
                 key={index}
