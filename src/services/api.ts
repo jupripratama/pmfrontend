@@ -22,11 +22,18 @@ import {
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (import.meta.env.DEV) {
-    // Development: tetap pakai localhost
     return "http://localhost:5116";
   }
-  // Production: ganti dengan domain baru
-  return import.meta.env.VITE_API_URL || "http://apimkn.duckdns.org";
+
+  // Coba beberapa URL untuk testing
+  const urls = [
+    "http://apimkn.duckdns.org",
+    "http://apimkn.duckdns.org:5116",
+    "https://pm-mkn-production.up.railway.app", // fallback ke yang lama
+  ];
+
+  // Untuk testing, return yang pertama
+  return urls[0];
 };
 // ✅ DEFAULT API INSTANCE (60 second timeout)
 export const api = axios.create({
