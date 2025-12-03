@@ -22,11 +22,9 @@ import {
 // Determine base URL based on environment
 const getBaseURL = () => {
   if (import.meta.env.DEV) {
-    // Saat development di localhost
-    return "http://localhost:5116";
+    return import.meta.env.VITE_API_URL || "http://localhost:5116";
   }
-  // Saat di Vercel (production/testing)
-  return "/api"; // ← ini akan di-handle oleh vercel.json
+  return import.meta.env.VITE_API_URL || "https://api.mknops.web.id";
 };
 // ✅ DEFAULT API INSTANCE (60 second timeout)
 export const api = axios.create({
