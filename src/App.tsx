@@ -21,6 +21,7 @@ import ProfilePage from "./components/ProfilePage";
 import SettingsPage from "./components/SettingsPage";
 import InspeksiKPCPage from "./components/InspeksiKPCPage";
 import NecHistoryPage from "./components/NEC/NecHistoryPage";
+import NecTowerLinkManagement from "./components/NEC/NecTowerLinkManagement";
 import { Toaster } from "./components/ui/toaster";
 
 // ✅ HELPER: CEK PERMISSION DARI LOCALSTORAGE
@@ -183,6 +184,8 @@ function AppContent() {
               </PermissionGuard>
             }
           />
+
+          <Route path="/nec-management" element={<NecTowerLinkManagement />} />
 
           <Route
             path="/settings"

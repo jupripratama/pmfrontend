@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import NecRslPivotTable from "./NecRslPivotTable";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -24,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -49,6 +51,7 @@ import {
   X,
   CheckCircle,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -74,6 +77,7 @@ import {
   NecSignalImportResultDto,
 } from "../../types/necSignal";
 
+
 interface HistoryDataPoint {
   date: string;
   value: number;
@@ -98,6 +102,8 @@ const NecHistoryPage: React.FC = () => {
     rslNearEnd: 0,
     rslFarEnd: 0,
   });
+
+  const [importFormat, setImportFormat] = useState<"row" | "pivot">("pivot");
 
   const [importResult, setImportResult] =
     useState<NecSignalImportResultDto | null>(null);
@@ -130,6 +136,25 @@ const NecHistoryPage: React.FC = () => {
     fetchTowersAndLinks();
   }, []);
 
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        await Promise.all([fetchHistories(), fetchTowersAndLinks()]);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+        toast({
+          title: "Error",
+          description: "Gagal memuat data awal. Silakan refresh halaman.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInitialData();
+  }, []);
+
   // Fetch histories based on search and pagination
   const fetchHistories = async (page = 1, search = "", linkId?: number) => {
     setIsLoading(true);
@@ -140,42 +165,71 @@ const NecHistoryPage: React.FC = () => {
         search,
         necLinkId: linkId || undefined,
       };
+
+      console.log("📡 Fetching histories with query:", query);
+
       const result = await necSignalApi.getHistories(query);
-      setHistories(result.data);
-      setTotalPages(result.totalPages);
-      setCurrentPage(result.page);
-    } catch (error) {
-      console.error("Error fetching histories:", error);
+
+      console.log("📊 API Response:", result);
+
+      if (result && result.data) {
+        setHistories(result.data);
+        setTotalPages(result.totalPages || 1);
+        setCurrentPage(result.page || 1);
+      } else {
+        console.warn("⚠️ No data in response");
+        setHistories([]);
+        setTotalPages(1);
+        setCurrentPage(1);
+      }
+    } catch (error: any) {
+      console.error("❌ Error fetching histories:", error);
+
+      // Tampilkan error detail
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+      }
+
       toast({
         title: "Error",
-        description: "Gagal memuat data history.",
+        description: error.message || "Gagal memuat data history.",
         variant: "destructive",
       });
+
+      setHistories([]);
+      setTotalPages(1);
+      setCurrentPage(1);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    console.log("🔍 Current histories state:", histories);
+    console.log("📊 Histories count:", histories.length);
+  }, [histories]);
 
   // Fetch towers and links for dropdowns
   const fetchTowersAndLinks = async () => {
     try {
       const towersResult = await necSignalApi.getTowers();
       const linksResult = await necSignalApi.getLinks();
-      setTowers(towersResult.map((t) => ({ id: t.id, name: t.name })));
+      setTowers(towersResult?.map((t) => ({ id: t.id, name: t.name })) || []); // ✅ FIX: Safe mapping
       setLinks(
-        linksResult.map((l) => ({
+        linksResult?.map((l) => ({
           id: l.id,
           name: l.linkName,
           nearEndTower: l.nearEndTower,
           farEndTower: l.farEndTower,
-        }))
+        })) || [] // ✅ FIX: Safe mapping
       );
     } catch (error) {
       console.error("Error fetching towers/links:", error);
+      setTowers([]); // ✅ FIX: Set empty arrays on error
+      setLinks([]);
     }
   };
 
-  // Fetch monthly data for chart
   const fetchMonthlyData = async () => {
     if (!selectedYear || !selectedMonth) return;
     try {
@@ -183,6 +237,7 @@ const NecHistoryPage: React.FC = () => {
       setMonthlyData(result);
     } catch (error) {
       console.error("Error fetching monthly data:", error);
+      setMonthlyData(null); // ✅ FIX: Reset on error
     }
   };
 
@@ -194,6 +249,7 @@ const NecHistoryPage: React.FC = () => {
       setYearlyData(result);
     } catch (error) {
       console.error("Error fetching yearly data:", error);
+      setYearlyData(null); // ✅ FIX: Reset on error
     }
   };
 
@@ -310,9 +366,11 @@ const NecHistoryPage: React.FC = () => {
       });
       return;
     }
-
+  
     try {
-      const result = await necSignalApi.importExcel({ excelFile: importFile });
+      // ✅ Hanya gunakan pivot untuk sementara
+      const result = await necSignalApi.importPivotExcel({ excelFile: importFile });
+      
       setImportResult(result);
       toast({
         title: "Impor Selesai",
@@ -321,11 +379,16 @@ const NecHistoryPage: React.FC = () => {
       setIsImportModalOpen(false);
       setImportFile(null);
       fetchHistories();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error importing file:", error);
+      
+      const errorMsg = error.response?.data?.message 
+        || error.response?.data?.errors?.[0]
+        || "Gagal mengimpor file Excel.";
+      
       toast({
-        title: "Error",
-        description: "Gagal mengimpor file Excel.",
+        title: "Error Import",
+        description: errorMsg,
         variant: "destructive",
       });
     }
@@ -351,59 +414,112 @@ const NecHistoryPage: React.FC = () => {
 
   // Generate data for charts
   const generateLineChartData = () => {
-    if (!monthlyData) return [];
-    const chartData: HistoryDataPoint[] = [];
+    if (!monthlyData || !monthlyData.data) return [];
+    
+    const chartData: { date: string; value: number }[] = [];
+    
     monthlyData.data.forEach((tower) => {
-      tower.links.forEach((link) => {
-        chartData.push({
-          date: link.linkName,
-          value: link.avgRsl,
+      if (tower.links && Array.isArray(tower.links)) {
+        tower.links.forEach((link) => {
+          chartData.push({
+            date: link.linkName,
+            value: link.avgRsl,
+          });
         });
-      });
+      }
     });
+    
     return chartData;
   };
-
+  
+  // ✅ FIXED: Pie Chart untuk Status Distribution
   const generatePieChartData = () => {
-    if (!monthlyData) return [];
-    const chartData: { name: string; value: number; fill: string }[] = [];
+    if (!monthlyData || !monthlyData.data) return [];
+    
+    // Hitung jumlah link per status
+    const statusCount = {
+      normal: 0,
+      warning_high: 0,
+      warning_low: 0,
+      critical: 0,
+    };
+    
     monthlyData.data.forEach((tower) => {
-      tower.links.forEach((link) => {
-        chartData.push({
-          name: link.linkName,
-          value: link.avgRsl,
-          fill:
-            link.status === "normal"
-              ? "#10B981"
-              : link.status === "warning_high"
-              ? "#F59E0B"
-              : "#EF4444",
+      if (tower.links && Array.isArray(tower.links)) {
+        tower.links.forEach((link) => {
+          const status = link.status || 'normal';
+          if (status === 'normal') statusCount.normal++;
+          else if (status === 'warning_high') statusCount.warning_high++;
+          else if (status === 'warning_low') statusCount.warning_low++;
+          else statusCount.critical++;
         });
-      });
+      }
     });
-    return chartData;
+    
+    // Convert ke format Pie Chart
+    const pieData = [
+      {
+        name: 'Normal',
+        value: statusCount.normal,
+        fill: '#10B981', // green
+      },
+      {
+        name: 'Terlalu Kuat',
+        value: statusCount.warning_high,
+        fill: '#F59E0B', // orange
+      },
+      {
+        name: 'Terlalu Lemah',
+        value: statusCount.warning_low,
+        fill: '#EF4444', // red
+      },
+      {
+        name: 'Critical',
+        value: statusCount.critical,
+        fill: '#DC2626', // dark red
+      },
+    ].filter(item => item.value > 0); // Hanya tampilkan yang ada datanya
+    
+    return pieData;
   };
-
+  
+  // ✅ FIXED: Yearly Chart Data
   const generateYearlyChartData = () => {
-    if (!yearlyData) return [];
-    const chartData: HistoryDataPoint[] = [];
+    if (!yearlyData || !yearlyData.towers) return [];
+    
+    const monthlyAverages: Record<string, { sum: number; count: number }> = {};
+    
     yearlyData.towers.forEach((tower) => {
       Object.entries(tower.links).forEach(([linkName, linkData]) => {
-        const months = Object.keys(linkData.monthlyAvg).map((month) => ({
-          name: month,
-          date: month,
-          value: linkData.monthlyAvg[month],
-        }));
-        chartData.push(
-          ...months.map((m) => ({
-            date: m.date,
-            value: m.value,
-          }))
-        );
+        Object.entries(linkData.monthlyAvg).forEach(([month, value]) => {
+          if (!monthlyAverages[month]) {
+            monthlyAverages[month] = { sum: 0, count: 0 };
+          }
+          monthlyAverages[month].sum += value;
+          monthlyAverages[month].count++;
+        });
       });
     });
+    
+    // Convert ke array untuk chart
+    const chartData = Object.entries(monthlyAverages).map(([month, data]) => ({
+      date: month,
+      value: Math.round((data.sum / data.count) * 10) / 10, // Rata-rata dengan 1 desimal
+    }));
+    
+    // Sort by month order
+    const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    chartData.sort((a, b) => {
+      const aMonth = a.date.split('-')[0];
+      const bMonth = b.date.split('-')[0];
+      return monthOrder.indexOf(aMonth) - monthOrder.indexOf(bMonth);
+    });
+    
     return chartData;
   };
+
 
   // Render monthly chart
   const renderMonthlyChart = () => {
@@ -440,27 +556,32 @@ const NecHistoryPage: React.FC = () => {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Grafik Pie Status</CardTitle>
+              <CardTitle>Distribusi Status Link</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={generatePieChartData()}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {generatePieChartData().map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
+              <PieChart>
+                <Pie
+                  data={generatePieChartData()}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => 
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {generatePieChartData().map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => `${value} links`}
+                />
+                <Legend />
+              </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -539,21 +660,35 @@ const NecHistoryPage: React.FC = () => {
               <CardTitle>Grafik Area Rata-rata Bulanan</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={generateYearlyChartData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#8884d8"
-                    fill="#8884d8"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={generateYearlyChartData()}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  domain={[-100, -20]}
+                  label={{ 
+                    value: 'RSL (dBm)', 
+                    angle: -90, 
+                    position: 'insideLeft' 
+                  }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value.toFixed(1)} dBm`, 'Avg RSL']}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="Average RSL"
+                  stroke="#8884d8"
+                  fill="#8884d8"
+                  fillOpacity={0.6}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
             </CardContent>
           </Card>
           <Card>
@@ -603,6 +738,9 @@ const NecHistoryPage: React.FC = () => {
           <Button onClick={() => navigate("/dashboard")} variant="outline">
             Kembali ke Dashboard
           </Button>
+          <Button onClick={() => navigate("/nec-management")} variant="outline">
+            <Settings className="mr-2 h-4 w-4" /> Kelola Tower & Link
+          </Button>
           <Button onClick={() => setIsImportModalOpen(true)}>
             <Upload className="mr-2 h-4 w-4" /> Impor Excel
           </Button>
@@ -619,6 +757,7 @@ const NecHistoryPage: React.FC = () => {
       >
         <TabsList>
           <TabsTrigger value="history">Daftar History</TabsTrigger>
+          <TabsTrigger value="pivot">Pivot Table</TabsTrigger>
           <TabsTrigger value="monthly">Grafik Bulanan</TabsTrigger>
           <TabsTrigger value="yearly">Grafik Tahunan</TabsTrigger>
         </TabsList>
@@ -652,13 +791,13 @@ const NecHistoryPage: React.FC = () => {
                   />
                 </div>
                 <Select
-                  value={selectedLink?.toString() || ""}
+                  value={selectedLink?.toString() || "all"} // ✅ Changed from ""
                   onValueChange={(value) => {
-                    setSelectedLink(value ? parseInt(value) : null);
+                    setSelectedLink(value === "all" ? null : parseInt(value)); // ✅ Changed
                     fetchHistories(
                       1,
                       searchTerm,
-                      value ? parseInt(value) : undefined
+                      value === "all" ? undefined : parseInt(value) // ✅ Changed
                     );
                   }}
                 >
@@ -666,10 +805,11 @@ const NecHistoryPage: React.FC = () => {
                     <SelectValue placeholder="Filter by Link" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Semua Link</SelectItem>
+                    <SelectItem value="all">Semua Link</SelectItem>{" "}
+                    {/* ✅ Changed from "" */}
                     {links.map((link) => (
                       <SelectItem key={link.id} value={link.id.toString()}>
-                        {link.name} ({link.nearEndTower} → {link.farEndTower})
+                        {link.name} 
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -686,67 +826,94 @@ const NecHistoryPage: React.FC = () => {
               {isLoading ? (
                 <div className="flex justify-center items-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <span className="ml-3">Memuat data...</span>
                 </div>
               ) : (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>No</TableHead>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>Link</TableHead>
-                        <TableHead>Tower Near End</TableHead>
-                        <TableHead>Tower Far End</TableHead>
-                        <TableHead>RSL Near End</TableHead>
-                        <TableHead>RSL Far End</TableHead>
-                        <TableHead>Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {histories.map((history) => (
-                        <TableRow key={history.id}>
-                          <TableCell>{history.no}</TableCell>
-                          <TableCell>
-                            {format(new Date(history.date), "dd/MM/yyyy")}
-                          </TableCell>
-                          <TableCell>{history.linkName}</TableCell>
-                          <TableCell>{history.nearEndTower}</TableCell>
-                          <TableCell>{history.farEndTower}</TableCell>
-                          <TableCell>
-                            {history.rslNearEnd.toFixed(1)} dBm
-                          </TableCell>
-                          <TableCell>
-                            {history.rslFarEnd
-                              ? `${history.rslFarEnd.toFixed(1)} dBm`
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openModal("edit", history)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(history.id)}
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                  {histories.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>No</TableHead>
+                          <TableHead>Tanggal</TableHead>
+                          <TableHead>Link</TableHead>
+                          {/* <TableHead>Tower Near End</TableHead> */}
+                          {/* <TableHead>Tower Far End</TableHead> */}
+                          <TableHead>RSL</TableHead>{" "}
+                          {/* ✅ Diubah jadi RSL saja */}
+                          <TableHead>Aksi</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-
-                  {histories.length === 0 && (
+                      </TableHeader>
+                      <TableBody>
+                        {histories.map((history) => (
+                          <TableRow key={history.id}>
+                            <TableCell>{history.no || history.id}</TableCell>
+                            <TableCell>
+                              {format(new Date(history.date), "dd/MM/yyyy")}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {history.linkName}
+                            </TableCell>
+                            {/* <TableCell>{history.nearEndTower}</TableCell> */}
+                            {/* <TableCell>{history.farEndTower}</TableCell> */}
+                            <TableCell>
+                              {/* ✅ Tampilkan hanya RSL Near End dengan color coding */}
+                              <div className="flex flex-col">
+                                <span
+                                  className={`font-mono font-semibold ${
+                                    history.rslNearEnd > -40
+                                      ? "text-red-600"
+                                      : history.rslNearEnd >= -45
+                                      ? "text-green-600"
+                                      : "text-yellow-600"
+                                  }`}
+                                >
+                                  {history.rslNearEnd.toFixed(1)} dBm
+                                </span>
+                                {/* Optional: Tampilkan RSL Far End jika ada, tapi lebih kecil */}
+                                {/* {history.rslFarEnd && (
+                                  <span className="text-xs text-gray-500 mt-1">
+                                    Far: {history.rslFarEnd.toFixed(1)} dBm
+                                  </span>
+                                )} */}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openModal("edit", history)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(history.id)}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
                     <Alert className="mt-4">
-                      <AlertDescription>
-                        Tidak ada data history yang ditemukan.
+                      <AlertDescription className="flex flex-col items-center justify-center py-8">
+                        <div className="text-gray-400 mb-2">
+                          <Search className="h-12 w-12" />
+                        </div>
+                        <p className="text-lg font-medium">
+                          Tidak ada data history
+                        </p>
+                        <p className="text-gray-600 mt-1">
+                          {searchTerm || selectedLink
+                            ? "Coba ubah filter pencarian"
+                            : "Klik 'Tambah Data' untuk menambahkan data RSL"}
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -787,6 +954,10 @@ const NecHistoryPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pivot">
+          <NecRslPivotTable />
         </TabsContent>
 
         <TabsContent value="monthly">
@@ -917,7 +1088,7 @@ const NecHistoryPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="rslNearEnd">RSL Near End (dBm)</Label>
+                <Label htmlFor="rslNearEnd">RSL(dBm)</Label>
                 <Input
                   id="rslNearEnd"
                   type="number"
@@ -930,7 +1101,7 @@ const NecHistoryPage: React.FC = () => {
                   required
                 />
               </div>
-              <div>
+              {/* <div>
                 <Label htmlFor="rslFarEnd">RSL Far End (dBm)</Label>
                 <Input
                   id="rslFarEnd"
@@ -942,7 +1113,7 @@ const NecHistoryPage: React.FC = () => {
                   value={formData.rslFarEnd}
                   onChange={handleInputChange}
                 />
-              </div>
+              </div> */}
             </div>
             <DialogFooter className="mt-4">
               <Button
@@ -962,61 +1133,142 @@ const NecHistoryPage: React.FC = () => {
 
       {/* Modal for Import */}
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Impor Data dari Excel</DialogTitle>
+            <DialogDescription>
+              Pilih format Excel yang sesuai dengan file Anda
+            </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4">
-            <Input
-              type="file"
-              accept=".xlsx,.xls"
-              ref={fileInputRef}
-              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-            />
+            {/* Format Selection */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <Label className="text-sm font-semibold mb-3 block">
+                Format File Excel:
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => setImportFormat("pivot")}
+                  className="h-auto py-3 flex-col items-start"
+                >
+                  <div className="font-semibold">Pivot/Monthly Format</div>
+                  <div className="text-xs text-left mt-1 opacity-80">
+                    No | Link | Jan-25 | Feb-25 | ...
+                  </div>
+                </Button>
+                
+                
+              </div>
+            </div>
+
+            {/* Format Info */}
+            <Alert>
+              <AlertDescription className="space-y-2">
+                {importFormat === "pivot" ? (
+                  <>
+                    <p className="font-semibold">Format Pivot (yang Anda gunakan):</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      <li><strong>Kolom A:</strong> No (opsional)</li>
+                      <li><strong>Kolom B:</strong> Link Name (contoh: M5 to Hasari)</li>
+                      <li><strong>Kolom C+:</strong> Jan-25, Feb-25, Mar-25, dst</li>
+                      <li><strong>Data:</strong> RSL values dalam setiap cell</li>
+                    </ul>
+                    <p className="text-xs text-gray-600 mt-2">
+                      ✅ Tanggal akan di-set ke tanggal 15 setiap bulan
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold">Format Row Per Date:</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      <li><strong>Kolom A:</strong> Date (2025-01-15)</li>
+                      <li><strong>Kolom B:</strong> Link Name</li>
+                      <li><strong>Kolom C:</strong> RSL Near End</li>
+                      <li><strong>Kolom D:</strong> RSL Far End (optional)</li>
+                    </ul>
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+            
+            {/* File Input */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                ref={fileInputRef}
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                className="mb-2"
+              />
+              {importFile && (
+                <p className="text-sm text-green-600 mt-2">
+                  ✓ {importFile.name}
+                </p>
+              )}
+            </div>
+            
+            {/* Import Result */}
             {importResult && (
               <Alert
-                className={`mt-4 ${
+                className={
                   importResult.failedRows > 0
-                    ? "bg-red-50 text-red-700"
-                    : "bg-green-50 text-green-700"
-                }`}
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-green-50 text-green-700 border-green-200"
+                }
               >
                 <AlertDescription>
-                  <strong>{importResult.message}</strong>
-                  <br />
-                  Total baris diproses: {importResult.totalRowsProcessed}
-                  <br />
-                  Berhasil: {importResult.successfulInserts}
-                  <br />
-                  Gagal: {importResult.failedRows}
+                  <p className="font-semibold">{importResult.message}</p>
+                  <div className="grid grid-cols-3 gap-2 text-sm mt-2">
+                    <div>
+                      <span className="font-medium">Diproses:</span> {importResult.totalRowsProcessed}
+                    </div>
+                    <div className="text-green-700">
+                      <span className="font-medium">Berhasil:</span> {importResult.successfulInserts}
+                    </div>
+                    <div className="text-red-700">
+                      <span className="font-medium">Gagal:</span> {importResult.failedRows}
+                    </div>
+                  </div>
+                  
                   {importResult.errors.length > 0 && (
-                    <div className="mt-2">
-                      <strong>Error:</strong>
-                      <ul className="list-disc list-inside mt-1">
-                        {importResult.errors
-                          .slice(0, 5)
-                          .map((error: string, idx: number) => (
-                            <li key={idx}>{error}</li>
+                    <div className="mt-3">
+                      <p className="font-medium mb-1">Errors:</p>
+                      <ScrollArea className="h-32 border rounded p-2 bg-white">
+                        <ul className="list-disc list-inside text-xs space-y-1">
+                          {importResult.errors.map((error, idx) => (
+                            <li key={idx} className="text-red-600">{error}</li>
                           ))}
-                        {importResult.errors.length > 5 && (
-                          <li>dan {importResult.errors.length - 5} lagi...</li>
-                        )}
-                      </ul>
+                        </ul>
+                      </ScrollArea>
                     </div>
                   )}
                 </AlertDescription>
               </Alert>
             )}
           </div>
+          
           <DialogFooter className="mt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsImportModalOpen(false)}
+              onClick={() => {
+                setIsImportModalOpen(false);
+                setImportResult(null);
+                setImportFile(null);
+              }}
             >
-              Batal
+              Tutup
             </Button>
-            <Button onClick={handleImport}>Impor</Button>
+            <Button 
+              onClick={handleImport}
+              disabled={!importFile}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Impor ({importFormat === "pivot" ? "Pivot" : "Row"})
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

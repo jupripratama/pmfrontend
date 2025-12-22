@@ -1,3 +1,7 @@
+// ============================================
+// BASE QUERY & PAGINATION
+// ============================================
+
 export interface NecRslHistoryQueryDto {
   page?: number;
   pageSize?: number;
@@ -6,18 +10,6 @@ export interface NecRslHistoryQueryDto {
   sortBy?: string;
   sortDir?: string;
   filtersJson?: string;
-}
-
-export interface NecRslHistoryItemDto {
-  id: number;
-  necLinkId: number;
-  linkName: string;
-  nearEndTower: string;
-  farEndTower: string;
-  date: string; // ISO Date String
-  rslNearEnd: number;
-  rslFarEnd?: number | null;
-  no: number;
 }
 
 export interface PagedResultDto<T> {
@@ -29,6 +21,38 @@ export interface PagedResultDto<T> {
   hasNext: boolean;
   hasPrevious: boolean;
 }
+
+// ============================================
+// HISTORY ITEMS
+// ============================================
+
+export interface NecRslHistoryItemDto {
+  id: number;
+  necLinkId: number;
+  linkName: string;
+  nearEndTower: string;
+  farEndTower: string;
+  date: string;
+  rslNearEnd: number;
+  rslFarEnd?: number | null;
+  no: number;
+}
+
+export interface NecRslHistoryCreateDto {
+  necLinkId: number;
+  date: string;
+  rslNearEnd: number;
+  rslFarEnd?: number | null;
+}
+
+export interface NecRslHistoryUpdateDto {
+  rslNearEnd: number;
+  rslFarEnd?: number | null;
+}
+
+// ============================================
+// MONTHLY & YEARLY SUMMARY
+// ============================================
 
 export interface NecMonthlyHistoryResponseDto {
   period: string;
@@ -58,10 +82,41 @@ export interface NecTowerYearlyDto {
 }
 
 export interface NecLinkYearlyDto {
-  monthlyAvg: Record<string, number>; // key: "Jan", "Feb", etc.
+  monthlyAvg: Record<string, number>;
   yearlyAvg: number;
   warnings: string[];
 }
+
+// ============================================
+// PIVOT TABLE
+// ============================================
+
+export interface NecYearlyPivotDto {
+  linkName: string;
+  tower: string;
+  monthlyValues: Record<string, number | null>;
+  expectedRslMin: number;
+  expectedRslMax: number;
+}
+
+export interface NecChartData {
+  month: string;
+  monthIndex?: number;
+  [key: string]: string | number | null | undefined;
+}
+
+export interface NecTowerStats {
+  towerName: string;
+  totalLinks: number;
+  avgRsl: number;
+  healthyLinks: number;
+  warningLinks: number;
+  criticalLinks: number;
+}
+
+// ============================================
+// IMPORT & EXPORT
+// ============================================
 
 export interface NecSignalImportRequestDto {
   excelFile: File;
@@ -74,6 +129,10 @@ export interface NecSignalImportResultDto {
   errors: string[];
   message: string;
 }
+
+// ============================================
+// TOWER
+// ============================================
 
 export interface TowerListDto {
   id: number;
@@ -91,11 +150,17 @@ export interface TowerUpdateDto extends TowerCreateDto {
   id: number;
 }
 
+// ============================================
+// LINK - ✅ FIXED: Tambah Tower IDs
+// ============================================
+
 export interface NecLinkListDto {
   id: number;
   linkName: string;
   nearEndTower: string;
   farEndTower: string;
+  nearEndTowerId: number;  // ✅ TAMBAHAN
+  farEndTowerId: number;   // ✅ TAMBAHAN
   expectedRslMin: number;
   expectedRslMax: number;
 }
@@ -110,16 +175,4 @@ export interface NecLinkCreateDto {
 
 export interface NecLinkUpdateDto extends NecLinkCreateDto {
   id: number;
-}
-
-export interface NecRslHistoryCreateDto {
-  necLinkId: number;
-  date: string; // ISO Date String
-  rslNearEnd: number;
-  rslFarEnd?: number | null;
-}
-
-export interface NecRslHistoryUpdateDto {
-  rslNearEnd: number;
-  rslFarEnd?: number | null;
 }
