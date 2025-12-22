@@ -1,0 +1,252 @@
+import {
+  NecLinkCreateDto,
+  NecLinkListDto,
+  NecLinkUpdateDto,
+  NecMonthlyHistoryResponseDto,
+  NecRslHistoryCreateDto,
+  NecRslHistoryItemDto,
+  NecRslHistoryQueryDto,
+  NecRslHistoryUpdateDto,
+  NecSignalImportRequestDto,
+  NecSignalImportResultDto,
+  NecYearlySummaryDto,
+  NecYearlyPivotDto,
+  PagedResultDto,
+  TowerCreateDto,
+  TowerListDto,
+  TowerUpdateDto,
+} from "../types/necSignal";
+import { api } from "./api";
+
+export const necSignalApi = {
+  // ============================================
+  // HISTORY CRUD
+  // ============================================
+
+  getHistories: async (
+    query: NecRslHistoryQueryDto
+  ): Promise<PagedResultDto<NecRslHistoryItemDto>> => {
+    try {
+      console.log("📡 Sending query to API:", query);
+
+      const response = await api.get("/api/nec-signal/histories", {
+        params: query,
+      });
+
+      console.log("📊 Raw API Response:", response.data);
+
+      // ✅ PERBAIKAN: Pastikan kita ambil data dari struktur yang benar
+      const apiData = response.data;
+
+      // Cek beberapa kemungkinan struktur response
+      let resultData: PagedResultDto<NecRslHistoryItemDto>;
+
+      if (apiData.data && Array.isArray(apiData.data.data)) {
+        // Struktur 1: { data: { data: [], ... } }
+        resultData = {
+          data: apiData.data.data || [],
+          page: apiData.data.page || 1,
+          pageSize: apiData.data.pageSize || 15,
+          totalCount: apiData.data.totalCount || 0,
+          totalPages: apiData.data.totalPages || 1,
+          hasNext: apiData.data.hasNext || false,
+          hasPrevious: apiData.data.hasPrevious || false,
+        };
+      } else if (apiData.data && Array.isArray(apiData.data)) {
+        // Struktur 2: { data: { data: [], ... } } (tanpa nested)
+        resultData = {
+          data: apiData.data || [],
+          page: apiData.page || 1,
+          pageSize: apiData.pageSize || 15,
+          totalCount: apiData.totalCount || 0,
+          totalPages: apiData.totalPages || 1,
+          hasNext: apiData.hasNext || false,
+          hasPrevious: apiData.hasPrevious || false,
+        };
+      } else {
+        // Struktur 3: langsung array
+        resultData = {
+          data: apiData || [],
+          page: 1,
+          pageSize: 15,
+          totalCount: apiData?.length || 0,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevious: false,
+        };
+      }
+
+      console.log("✅ Processed result:", {
+        dataCount: resultData.data.length,
+        page: resultData.page,
+        totalCount: resultData.totalCount,
+      });
+
+      return resultData;
+    } catch (error) {
+      console.error("❌ Error in getHistories API:", error);
+      throw error;
+    }
+  },
+
+  getHistoryById: async (id: number): Promise<NecRslHistoryItemDto> => {
+    const response = await api.get(`/api/nec-signal/histories/${id}`);
+    return response.data.data;
+  },
+
+  createHistory: async (
+    dto: NecRslHistoryCreateDto
+  ): Promise<NecRslHistoryItemDto> => {
+    const response = await api.post("/api/nec-signal/histories", dto);
+    return response.data.data;
+  },
+
+  updateHistory: async (
+    id: number,
+    dto: NecRslHistoryUpdateDto
+  ): Promise<NecRslHistoryItemDto> => {
+    const response = await api.put(`/api/nec-signal/histories/${id}`, dto);
+    return response.data.data;
+  },
+
+  deleteHistory: async (id: number): Promise<void> => {
+    await api.delete(`/api/nec-signal/histories/${id}`);
+  },
+
+  // ============================================
+  // MONTHLY & YEARLY SUMMARY
+  // ============================================
+
+  getMonthly: async (
+    year: number,
+    month: number
+  ): Promise<NecMonthlyHistoryResponseDto> => {
+    const response = await api.get("/api/nec-signal/monthly", {
+      params: { year, month },
+    });
+    return response.data.data;
+  },
+
+  getYearly: async (year: number): Promise<NecYearlySummaryDto> => {
+    const response = await api.get("/api/nec-signal/yearly", {
+      params: { year },
+    });
+    return response.data.data;
+  },
+
+  // ============================================
+  // ✅ NEW: YEARLY PIVOT
+  // ============================================
+
+  getYearlyPivot: async (
+    year: number,
+    tower?: string
+  ): Promise<NecYearlyPivotDto[]> => {
+    const response = await api.get("/api/nec-signal/yearly-pivot", {
+      params: { year, tower },
+    });
+    return response.data.data;
+  },
+
+  // ============================================
+  // IMPORT & EXPORT
+  // ============================================
+
+  importPivotExcel: async (
+    request: NecSignalImportRequestDto
+  ): Promise<NecSignalImportResultDto> => {
+    console.log("🔄 Starting importPivotExcel...");
+    
+    const formData = new FormData();
+    formData.append("excelFile", request.excelFile);
+    
+    console.log("📤 FormData entries:");
+    for (const pair of formData.entries()) {
+      console.log(`  ${pair[0]}:`, pair[1]);
+    }
+    
+    try {
+      console.log("📡 Sending to:", "/api/nec-signal/import-pivot-excel");
+      
+      const response = await api.post("/api/nec-signal/import-pivot-excel", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      console.log("✅ Response received:", response.data);
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error("❌ API Error details:");
+      console.error("  Status:", error.response?.status);
+      console.error("  Status Text:", error.response?.statusText);
+      console.error("  Headers:", error.response?.headers);
+      console.error("  Data:", error.response?.data);
+      console.error("  Config:", error.config);
+      throw error;
+    }
+  },
+
+  exportYearlyExcel: async (year: number, tower?: string): Promise<void> => {
+    const response = await api.get("/api/nec-signal/export-yearly-excel", {
+      params: { year, tower },
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    const fileName = `RSL_History_NEC_${year}${tower ? `_${tower}` : ""}.xlsx`;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // ============================================
+  // CRUD TOWER
+  // ============================================
+
+  getTowers: async (): Promise<TowerListDto[]> => {
+    const response = await api.get("/api/nec-signal/towers");
+    return response.data.data;
+  },
+
+  createTower: async (dto: TowerCreateDto): Promise<TowerListDto> => {
+    const response = await api.post("/api/nec-signal/towers", dto);
+    return response.data.data;
+  },
+
+  updateTower: async (dto: TowerUpdateDto): Promise<TowerListDto> => {
+    const response = await api.put("/api/nec-signal/towers", dto);
+    return response.data.data;
+  },
+
+  deleteTower: async (id: number): Promise<void> => {
+    await api.delete(`/api/nec-signal/towers/${id}`);
+  },
+
+  // ============================================
+  // CRUD LINK
+  // ============================================
+
+  getLinks: async (): Promise<NecLinkListDto[]> => {
+    const response = await api.get("/api/nec-signal/links");
+    return response.data.data;
+  },
+
+  createLink: async (dto: NecLinkCreateDto): Promise<NecLinkListDto> => {
+    const response = await api.post("/api/nec-signal/links", dto);
+    return response.data.data;
+  },
+
+  updateLink: async (dto: NecLinkUpdateDto): Promise<NecLinkListDto> => {
+    const response = await api.put("/api/nec-signal/links", dto);
+    return response.data.data;
+  },
+
+  deleteLink: async (id: number): Promise<void> => {
+    await api.delete(`/api/nec-signal/links/${id}`);
+  },
+};

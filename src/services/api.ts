@@ -78,6 +78,10 @@ const errorInterceptor = (error: any) => {
     code: error.code,
     url: error.config?.url,
     response: error.response?.data,
+    method: error.config?.method,
+    statusText: error.response?.statusText,
+    data: error.response?.data,
+    headers: error.config?.headers,
   });
 
   if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
