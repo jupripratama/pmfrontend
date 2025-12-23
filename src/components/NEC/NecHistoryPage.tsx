@@ -134,25 +134,6 @@ const getAvailableYears = (histories: NecRslHistoryItemDto[]) => {
   return years;
 };
 
-const checkHistoryExists = async (
-  linkId: number,
-  date: string
-): Promise<NecRslHistoryItemDto | null> => {
-  try {
-    const histories = await necSignalApi.getHistories({
-      page: 1,
-      pageSize: 1,
-      necLinkId: linkId,
-      // Filter by date — pastikan backend mendukung!
-      filtersJson: JSON.stringify({ date: { equals: date } }),
-    });
-    return histories.data.length > 0 ? histories.data[0] : null;
-  } catch (error) {
-    console.warn("Gagal cek duplikat:", error);
-    return null; // Asumsikan tidak ada jika error
-  }
-};
-
 const getRslTextColor = (value: number | null): string => {
   const status = getRslStatus(value);
   const colors = {
@@ -458,8 +439,7 @@ const NecHistoryPage: React.FC = () => {
     const payload = {
       necLinkId: formData.necLinkId,
       date: formData.date,
-      // Kirim null untuk non-active agar dianggap kosong
-      rslNearEnd: formData.status === "active" ? formData.rslNearEnd : null,
+      rslNearEnd: formData.status === "active" ? formData.rslNearEnd : -100, // ✅ Default untuk non-active
       rslFarEnd: formData.status === "active" ? formData.rslFarEnd : null,
       notes: formData.notes,
       status: formData.status,
