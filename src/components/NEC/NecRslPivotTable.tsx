@@ -126,6 +126,15 @@ const NecRslPivotTable: React.FC = () => {
   const [selectedTower, setSelectedTower] = useState<string>("all");
   const [towers, setTowers] = useState<string[]>([]);
 
+  const [hoveredCell, setHoveredCell] = useState<{
+    rowIdx: number;
+    colIdx: number;
+    linkName: string;
+    month: string;
+    value: number | null;
+    note?: string;
+  } | null>(null);
+
   // Note editing
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<{
@@ -204,6 +213,8 @@ const NecRslPivotTable: React.FC = () => {
 
   // Pie chart data
   const generatePieChartData = () => {
+    if (!pivotData || pivotData.length === 0) return [];
+    
     const statusCount = {
       too_strong: 0,
       optimal: 0,
@@ -211,10 +222,10 @@ const NecRslPivotTable: React.FC = () => {
       sub_optimal: 0,
       critical: 0,
     };
-
+  
     pivotData.forEach((link) => {
       Object.values(link.monthlyValues).forEach((value) => {
-        if (value !== null) {
+        if (value !== null && value !== undefined) {
           const status = getRslStatus(value);
           if (status !== "no_data") {
             statusCount[status as keyof typeof statusCount]++;
@@ -222,28 +233,31 @@ const NecRslPivotTable: React.FC = () => {
         }
       });
     });
-
-    return [
+  
+    const pieData = [
       { name: "Too Strong", value: statusCount.too_strong, fill: "#ef4444" },
       { name: "Optimal", value: statusCount.optimal, fill: "#10b981" },
       { name: "Warning", value: statusCount.warning, fill: "#f59e0b" },
       { name: "Sub-optimal", value: statusCount.sub_optimal, fill: "#fb923c" },
       { name: "Critical", value: statusCount.critical, fill: "#dc2626" },
     ].filter((item) => item.value > 0);
+  
+    return pieData;
   };
 
-  // Line chart data
+  // ✅ FIX: Line chart data - SHOW ALL LINKS
   const prepareChartData = () => {
     const chartData: Array<{
       month: string;
-      [key: string]: string | number | null;
+      [key: string]: string | number | null | undefined;
     }> = months.map((month) => ({ month }));
-
+  
     pivotData.forEach((link) => {
       months.forEach((month) => {
         const key = formatMonthKey(month);
         const value = link.monthlyValues[key];
-        chartData[months.indexOf(month)][link.linkName] = value ?? null;
+        chartData[months.indexOf(month)][link.linkName] = 
+          value !== null && value !== undefined ? value : null;
       });
     });
 
@@ -284,12 +298,8 @@ const NecRslPivotTable: React.FC = () => {
   // Data untuk chart
   const chartData = prepareChartData();
   const COLORS = [
-    "#3b82f6",
-    "#ef4444",
-    "#10b981",
-    "#f59e0b",
-    "#8b5cf6",
-    "#06b6d4",
+    "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4",
+    "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#a855f7"
   ];
 
   return (
@@ -362,33 +372,22 @@ const NecRslPivotTable: React.FC = () => {
                   height={50}
                 />
                 <YAxis domain={[-70, -30]} />
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value) => {
+                    if (value === null || value === undefined) return "No Data";
+                    return `${value} dBm`;
+                  }}
+                />
                 <Legend />
-                <ReferenceLine
-                  y={-45}
-                  stroke="#10b981"
-                  strokeDasharray="3 3"
-                  label="Optimal Max"
-                />
-                <ReferenceLine
-                  y={-55}
-                  stroke="#f59e0b"
-                  strokeDasharray="3 3"
-                  label="Warning"
-                />
-                <ReferenceLine
-                  y={-60}
-                  stroke="#fb923c"
-                  strokeDasharray="3 3"
-                  label="Sub-optimal"
-                />
-                <ReferenceLine
-                  y={-65}
-                  stroke="#dc2626"
-                  strokeDasharray="3 3"
-                  label="Critical"
-                />
-                {pivotData.slice(0, 6).map((link, idx) => (
+                
+                {/* Reference Lines */}
+                <ReferenceLine y={-45} stroke="#10b981" strokeDasharray="3 3" label="Optimal Max" />
+                <ReferenceLine y={-55} stroke="#f59e0b" strokeDasharray="3 3" label="Warning" />
+                <ReferenceLine y={-60} stroke="#fb923c" strokeDasharray="3 3" label="Sub-optimal" />
+                <ReferenceLine y={-65} stroke="#dc2626" strokeDasharray="3 3" label="Critical" />
+                
+                {/* ✅ FIX: SHOW ALL LINKS, not just first 6 */}
+                {pivotData.map((link, idx) => (
                   <Line
                     key={link.linkName}
                     type="monotone"
@@ -396,7 +395,7 @@ const NecRslPivotTable: React.FC = () => {
                     stroke={COLORS[idx % COLORS.length]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
-                    connectNulls
+                    connectNulls={false}
                   />
                 ))}
               </LineChart>
@@ -476,62 +475,108 @@ const NecRslPivotTable: React.FC = () => {
                   </thead>
                   <tbody>
                     {pivotData.map((row, rowIdx) => (
-                      <tr key={rowIdx} className="hover:bg-gray-50">
-                        <td className="border px-4 py-3 text-center sticky left-0 bg-white z-10">
+                      <tr key={rowIdx} className="group hover:bg-gray-50">
+                        <td className="border px-4 py-3 text-center sticky left-0 bg-white z-10 group-hover:bg-gray-50">
                           {rowIdx + 1}
                         </td>
-                        <td className="border px-4 py-3 sticky left-[60px] bg-white z-10">
+                        <td className="border px-4 py-3 sticky left-[60px] bg-white z-10 group-hover:bg-gray-50">
                           <div className="font-semibold">{row.linkName}</div>
-                          <div className="text-xs text-gray-500">
-                            Tower: {row.tower}
-                          </div>
+                          <div className="text-xs text-gray-500">Tower: {row.tower}</div>
                         </td>
+                        
                         {months.map((month, monthIdx) => {
                           const key = formatMonthKey(month);
                           const value = row.monthlyValues[key];
                           const note = row.notes?.[key];
-
+                          const isDataPresent = value !== null && value !== undefined;
+                          
                           return (
                             <td
                               key={monthIdx}
-                              className={`border px-2 py-2 text-center font-mono relative group ${getRslColor(
-                                value
-                              )} ${getRslTextColor(value)}`}
+                              onMouseEnter={() => setHoveredCell({
+                                rowIdx,
+                                colIdx: monthIdx,
+                                linkName: row.linkName,
+                                month: month,
+                                value: value,
+                                note: note
+                              })}
+                              onMouseLeave={() => setHoveredCell(null)}
+                              className={`border px-2 py-2 text-center font-mono relative cursor-pointer ${
+                                isDataPresent 
+                                  ? `${getRslColor(value)} ${getRslTextColor(value)}`
+                                  : 'bg-gray-50'
+                              } ${
+                                hoveredCell?.rowIdx === rowIdx && hoveredCell?.colIdx === monthIdx
+                                  ? 'ring-2 ring-blue-500'
+                                  : ''
+                              }`}
                             >
-                              <div className="font-bold">
-                                {value !== null ? value.toFixed(1) : "-"}
-                                {note && (
-                                  <span className="ml-1 text-blue-600 text-xs">
-                                    📝
-                                  </span>
-                                )}
-                              </div>
-                              {value !== null && (
-                                <div className="text-xs opacity-75">dBm</div>
+                              {/* Content */}
+                              {isDataPresent ? (
+                                <>
+                                  <div className="font-bold">
+                                    {value.toFixed(1)}
+                                    {note && <span className="ml-1 text-blue-600 text-xs">📝</span>}
+                                  </div>
+                                  <div className="text-xs opacity-75">dBm</div>
+                                </>
+                              ) : note ? (
+                                <div className="text-xs text-gray-600 italic px-1">
+                                  {note.length > 20 ? `${note.substring(0, 20)}...` : note}
+                                </div>
+                              ) : (
+                                <div className="text-gray-400 text-sm">-</div>
                               )}
-
-                              {/* Tooltip Hover */}
-                              {value !== null && (
-                                <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-lg z-20">
-                                  <div className="font-semibold mb-1">
-                                    {getRslStatusLabel(value)}
-                                  </div>
-                                  <div className="mb-2">
-                                    RSL: {value.toFixed(1)} dBm
-                                  </div>
-                                  {note && (
-                                    <div className="mb-2 p-2 bg-yellow-100 text-yellow-900 rounded">
-                                      📝 {note}
+                              
+                              {/* ✅ FIX: Tooltip - Smart positioning */}
+                              {hoveredCell?.rowIdx === rowIdx && hoveredCell?.colIdx === monthIdx && (
+                                <div 
+                                  className={`absolute left-1/2 transform -translate-x-1/2 ${
+                                    rowIdx < 3 ? 'top-full mt-2' : 'bottom-full mb-2'
+                                  } w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-lg z-50 animate-in fade-in-0 zoom-in-95`}
+                                >
+                                  <div className="relative">
+                                    {/* Arrow */}
+                                    <div 
+                                      className={`absolute left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-transparent ${
+                                        rowIdx < 3 
+                                          ? '-top-2 border-b-8 border-b-gray-900'
+                                          : '-bottom-2 border-t-8 border-t-gray-900'
+                                      }`}
+                                    />
+                                    
+                                    {/* Content */}
+                                    <div className="mb-2">
+                                      <h4 className="font-bold">{row.linkName}</h4>
+                                      <p className="text-gray-300 text-xs">{month} {selectedYear}</p>
                                     </div>
-                                  )}
-                                  <button
-                                    onClick={() =>
-                                      openNoteModal(row.linkName, key, note)
-                                    }
-                                    className="w-full px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded flex items-center justify-center gap-1 text-xs"
-                                  >
-                                    {note ? "Edit Note" : "Add Note"}
-                                  </button>
+                                    
+                                    {isDataPresent && (
+                                      <div className="mb-3">
+                                        <p className="text-lg font-bold">{value?.toFixed(1)} dBm</p>
+                                        <span className={`px-2 py-1 rounded text-xs text-black font-medium ${
+                                          getRslColor(value).replace('bg-', 'bg-')
+                                        }`}>
+                                          {getRslStatusLabel(value)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    
+                                    {note && (
+                                      <div className="mb-3 p-2 bg-yellow-900/30 rounded">
+                                        <p className="font-semibold">📝 Catatan:</p>
+                                        <p className="text-sm">{note}</p>
+                                      </div>
+                                    )}
+                                    
+                                    <button
+                                      onClick={() => openNoteModal(row.linkName, key, note)}
+                                      className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+                                    >
+                                      {note ? "✏️ Edit Note" : "📝 Add Note"}
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </td>

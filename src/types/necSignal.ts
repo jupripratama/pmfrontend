@@ -33,7 +33,7 @@ export interface NecRslHistoryItemDto {
   nearEndTower: string;
   farEndTower: string;
   date: string;
-  rslNearEnd: number;
+  rslNearEnd?: number | null;
   rslFarEnd?: number | null;
   notes?: string | null; // ✅ NEW
   status?: number | string | null | undefined; // ✅ NEW: "active", "dismantled", "removed", "obstacle"
@@ -43,7 +43,7 @@ export interface NecRslHistoryItemDto {
 export interface NecRslHistoryCreateDto {
   necLinkId: number;
   date: string;
-  rslNearEnd: number | null;
+  rslNearEnd?: number | null;
   rslFarEnd?: number | null;
   notes?: string | null; // ✅ NEW
   status?: string | null; // ✅ NEW

@@ -425,22 +425,25 @@ const NecHistoryPage: React.FC = () => {
   // Submit form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // ✅ Validasi: Notes wajib jika status tidak Active
-    if (formData.status !== "active" && !formData.notes?.trim()) {
+  
+    // ✅ LOGIKA BARU: Validasi gabungan RSL dan Notes
+    const hasRsl = formData.rslNearEnd !== 0; // atau null check
+    const hasNotes = formData.notes?.trim().length > 0;
+  
+    if (!hasRsl && !hasNotes) {
       toast({
         title: "Error",
-        description: "Catatan wajib diisi untuk status non-active",
+        description: "Harap isi RSL atau Catatan.",
         variant: "destructive",
       });
       return;
     }
-
+  
     const payload = {
       necLinkId: formData.necLinkId,
       date: formData.date,
-      rslNearEnd: formData.status === "active" ? formData.rslNearEnd : -100, // ✅ Default untuk non-active
-      rslFarEnd: formData.status === "active" ? formData.rslFarEnd : null,
+      rslNearEnd: hasRsl ? formData.rslNearEnd : null, // ✅ Boleh null
+      rslFarEnd: hasRsl ? formData.rslFarEnd : null,
       notes: formData.notes,
       status: formData.status,
     };
@@ -562,6 +565,8 @@ const NecHistoryPage: React.FC = () => {
     });
     return chartData;
   };
+
+  
   // ✅ FIXED: Pie Chart untuk Status Distribution
   const generatePieChartData = () => {
     if (!monthlyData || !monthlyData.data) return [];
@@ -979,15 +984,10 @@ const NecHistoryPage: React.FC = () => {
                             {/* <TableCell>{history.farEndTower}</TableCell> */}
                             <TableCell>
                               <div className="flex flex-col">
-                                {/* ✅ More readable version */}
                                 {isStatusActive(history.status) ? (
                                   <>
-                                    <span
-                                      className={`font-mono font-semibold ${getRslTextColor(
-                                        history.rslNearEnd
-                                      )}`}
-                                    >
-                                      {history.rslNearEnd.toFixed(1)} dBm
+                                    <span className={`font-mono font-semibold ${getRslTextColor(history.rslNearEnd)}`}>
+                                      {history.rslNearEnd?.toFixed(1) ?? "N/A"} dBm
                                     </span>
                                     <span className="text-xs text-gray-500 mt-1">
                                       {getRslStatusLabel(history.rslNearEnd)}
@@ -995,23 +995,11 @@ const NecHistoryPage: React.FC = () => {
                                   </>
                                 ) : (
                                   <div className="space-y-1">
-                                    <span
-                                      className={
-                                        getOperationalStatusDisplay(
-                                          history.status
-                                        ).className
-                                      }
-                                    >
-                                      {
-                                        getOperationalStatusDisplay(
-                                          history.status
-                                        ).label
-                                      }
+                                    <span className={getOperationalStatusDisplay(history.status).className}>
+                                      {getOperationalStatusDisplay(history.status).label}
                                     </span>
                                     {history.notes && (
-                                      <p className="text-xs text-gray-600 italic">
-                                        {history.notes}
-                                      </p>
+                                      <p className="text-xs text-gray-600 italic">{history.notes}</p>
                                     )}
                                   </div>
                                 )}
