@@ -23,7 +23,7 @@ export interface PagedResultDto<T> {
 }
 
 // ============================================
-// HISTORY ITEMS
+// HISTORY ITEMS - ✅ UPDATED with Notes & Status
 // ============================================
 
 export interface NecRslHistoryItemDto {
@@ -33,21 +33,27 @@ export interface NecRslHistoryItemDto {
   nearEndTower: string;
   farEndTower: string;
   date: string;
-  rslNearEnd: number;
+  rslNearEnd?: number | null;
   rslFarEnd?: number | null;
+  notes?: string | null; // ✅ NEW
+  status?: number | string | null | undefined; // ✅ NEW: "active", "dismantled", "removed", "obstacle"
   no: number;
 }
 
 export interface NecRslHistoryCreateDto {
   necLinkId: number;
   date: string;
-  rslNearEnd: number;
+  rslNearEnd?: number | null;
   rslFarEnd?: number | null;
+  notes?: string | null; // ✅ NEW
+  status?: string | null; // ✅ NEW
 }
 
 export interface NecRslHistoryUpdateDto {
-  rslNearEnd: number;
+  rslNearEnd: number | null;
   rslFarEnd?: number | null;
+  notes?: string | null; // ✅ NEW
+  status?: string | null; // ✅ NEW
 }
 
 // ============================================
@@ -95,8 +101,10 @@ export interface NecYearlyPivotDto {
   linkName: string;
   tower: string;
   monthlyValues: Record<string, number | null>;
+  monthlyStatuses: Record<string, string>;
   expectedRslMin: number;
   expectedRslMax: number;
+  notes?: Record<string, string>; // ✅ NEW: Notes per month
 }
 
 export interface NecChartData {
@@ -151,7 +159,7 @@ export interface TowerUpdateDto extends TowerCreateDto {
 }
 
 // ============================================
-// LINK - ✅ FIXED: Tambah Tower IDs
+// LINK
 // ============================================
 
 export interface NecLinkListDto {
@@ -159,8 +167,8 @@ export interface NecLinkListDto {
   linkName: string;
   nearEndTower: string;
   farEndTower: string;
-  nearEndTowerId: number;  // ✅ TAMBAHAN
-  farEndTowerId: number;   // ✅ TAMBAHAN
+  nearEndTowerId: number;
+  farEndTowerId: number;
   expectedRslMin: number;
   expectedRslMax: number;
 }

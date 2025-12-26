@@ -8,44 +8,134 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Download,
-  RefreshCw,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  BarChart3,
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { necSignalApi } from "../../services/necSignalService";
-import {
-  NecYearlyPivotDto,
-  NecChartData,
-  NecTowerStats,
-} from "../../types/necSignal";
-import { toast } from "@/hooks/use-toast";
+import type { NecYearlyPivotDto } from "../../types/necSignal";
+
+// Threshold RSL
+const RSL_THRESHOLDS = {
+  TOO_STRONG_MAX: -30,
+  TOO_STRONG_MIN: -45,
+  OPTIMAL_MAX: -45,
+  OPTIMAL_MIN: -55,
+  WARNING_MAX: -55,
+  WARNING_MIN: -60,
+  SUB_OPTIMAL_MAX: -60,
+  SUB_OPTIMAL_MIN: -65,
+  CRITICAL: -65,
+};
+
+const getRslStatus = (value: number | null): string => {
+  if (value === null) return "no_data";
+  if (
+    value > RSL_THRESHOLDS.TOO_STRONG_MIN &&
+    value <= RSL_THRESHOLDS.TOO_STRONG_MAX
+  )
+    return "too_strong";
+  if (value > RSL_THRESHOLDS.OPTIMAL_MIN && value <= RSL_THRESHOLDS.OPTIMAL_MAX)
+    return "optimal";
+  if (value > RSL_THRESHOLDS.WARNING_MIN && value <= RSL_THRESHOLDS.WARNING_MAX)
+    return "warning";
+  if (
+    value > RSL_THRESHOLDS.SUB_OPTIMAL_MIN &&
+    value <= RSL_THRESHOLDS.SUB_OPTIMAL_MAX
+  )
+    return "sub_optimal";
+  return "critical";
+};
+
+const getRslColor = (value: number | null): string => {
+  const status = getRslStatus(value);
+  const colors = {
+    too_strong: "bg-red-200",
+    optimal: "bg-green-200",
+    warning: "bg-yellow-200",
+    sub_optimal: "bg-orange-200",
+    critical: "bg-red-300",
+    no_data: "bg-gray-100",
+  };
+  return colors[status as keyof typeof colors] || colors.no_data;
+};
+
+const getRslTextColor = (value: number | null): string => {
+  const status = getRslStatus(value);
+  const colors = {
+    too_strong: "text-red-800",
+    optimal: "text-green-800",
+    warning: "text-yellow-800",
+    sub_optimal: "text-orange-800",
+    critical: "text-red-900",
+    no_data: "text-gray-400",
+  };
+  return colors[status as keyof typeof colors] || colors.no_data;
+};
+
+const getRslStatusLabel = (value: number | null): string => {
+  const status = getRslStatus(value);
+  const labels = {
+    too_strong: "Terlalu Kuat",
+    optimal: "Optimal",
+    warning: "Warning",
+    sub_optimal: "Sub-optimal",
+    critical: "Critical",
+    no_data: "No Data",
+  };
+  return labels[status as keyof typeof labels] || labels.no_data;
+};
+
+interface PivotData {
+  linkName: string;
+  tower: string;
+  monthlyValues: Record<string, number | null>;
+  expectedRslMin: number;
+  expectedRslMax: number;
+  notes?: Record<string, string>;
+}
 
 const NecRslPivotTable: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [pivotData, setPivotData] = useState<NecYearlyPivotDto[]>([]);
+  const [pivotData, setPivotData] = useState<PivotData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTower, setSelectedTower] = useState<string>("all");
-  const [activeView, setActiveView] = useState<"table" | "chart">("table");
   const [towers, setTowers] = useState<string[]>([]);
+
+  const [hoveredCell, setHoveredCell] = useState<{
+    rowIdx: number;
+    colIdx: number;
+    linkName: string;
+    month: string;
+    value: number | null;
+    note?: string;
+  } | null>(null);
+
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<{
+    linkName: string;
+    month: string;
+    currentNote?: string;
+  } | null>(null);
+  const [noteText, setNoteText] = useState("");
 
   const months = [
     "Jan",
@@ -62,247 +152,136 @@ const NecRslPivotTable: React.FC = () => {
     "Dec",
   ];
 
-  // Extract tower name dari link (contoh: "PTH to MS" → "PTH")
-  const extractTowerFromLink = (linkName: string): string => {
-    const parts = linkName.split(" to ");
-    return parts[0] || linkName;
-  };
-
-  // Format bulan untuk key (Jan-25)
   const formatMonthKey = (month: string): string => {
     return `${month}-${selectedYear.toString().slice(-2)}`;
   };
 
-  // Fetch data pivot dari API yang sudah ada
+  const fetchAvailableTowers = async () => {
+    try {
+      const allData = await necSignalApi.getYearlyPivot(selectedYear);
+      const uniqueTowers = Array.from(
+        new Set(allData.map((d) => d.tower))
+      ).sort();
+      setTowers(uniqueTowers);
+    } catch (error) {
+      console.error("Error fetching towers:", error);
+    }
+  };
+
   const fetchYearlyData = async () => {
     setIsLoading(true);
     try {
-      console.log(
-        "📡 Fetching pivot data for year:",
-        selectedYear,
-        "tower:",
-        selectedTower
-      );
-
-      const data = await necSignalApi.getYearlyPivot(
+      const response = await necSignalApi.getYearlyPivot(
         selectedYear,
         selectedTower === "all" ? undefined : selectedTower
       );
 
-      console.log("📊 Raw API Response:", data);
-      console.log("📊 First item structure:", data[0]);
-      console.log("📊 First item monthlyValues:", data[0]?.monthlyValues);
-
-      // Format data dengan benar
-      const formattedData = data.map((item, index) => {
-        console.log(`📊 Item ${index}:`, {
-          linkName: item.linkName,
-          tower: item.tower,
-          monthlyValuesKeys: Object.keys(item.monthlyValues || {}),
-          monthlyValuesSample: item.monthlyValues
-            ? Object.entries(item.monthlyValues).slice(0, 3)
-            : "No monthlyValues",
-        });
-
-        const completeMonthlyValues: Record<string, number | null> = {};
-
-        months.forEach((month) => {
-          const key = formatMonthKey(month);
-          // Cek apakah nilai ada, jika tidak set null
-          completeMonthlyValues[key] = item.monthlyValues?.[key] ?? null;
-        });
-
-        return {
-          ...item,
-          tower: item.tower || extractTowerFromLink(item.linkName),
-          monthlyValues: completeMonthlyValues,
-          expectedRslMin: item.expectedRslMin || -60,
-          expectedRslMax: item.expectedRslMax || -40,
-        };
-      });
-
-      console.log("✅ Formatted data sample:", formattedData[0]);
-      console.log("✅ Total formatted items:", formattedData.length);
+      const formattedData: PivotData[] = response.map((item) => ({
+        linkName: item.linkName,
+        tower: item.tower,
+        monthlyValues: item.monthlyValues,
+        expectedRslMin: item.expectedRslMin || -60,
+        expectedRslMax: item.expectedRslMax || -40,
+        notes: item.notes || {},
+      }));
 
       setPivotData(formattedData);
-
-      toast({
-        title: "Data Loaded",
-        description: `${formattedData.length} links loaded for ${selectedYear}`,
-      });
     } catch (error) {
-      console.error("❌ Error fetching pivot data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load pivot data. Check console for details.",
-        variant: "destructive",
-      });
+      console.error("Error fetching pivot data:", error);
+      setPivotData([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch towers untuk dropdown filter
-  const fetchTowers = async () => {
-    try {
-      // Coba ambil dari API towers
-      const towerData = await necSignalApi.getTowers();
-      const towerNames = towerData.map((t) => t.name);
-      setTowers(towerNames);
-    } catch (error) {
-      console.error(
-        "Error fetching towers, extracting from pivot data:",
-        error
-      );
-      // Fallback: extract dari data yang sudah dimuat
-      const towerNames = Array.from(
-        new Set(pivotData.map((d) => d.tower))
-      ).sort();
-      setTowers(towerNames);
-    }
-  };
+  useEffect(() => {
+    fetchAvailableTowers();
+  }, [selectedYear]);
 
   useEffect(() => {
     fetchYearlyData();
   }, [selectedYear, selectedTower]);
 
-  useEffect(() => {
-    if (pivotData.length > 0) {
-      const towerNames = Array.from(
-        new Set(pivotData.map((d) => d.tower))
-      ).sort();
-      setTowers(towerNames);
-    }
-  }, [pivotData]);
+  const generatePieChartData = () => {
+    if (!pivotData || pivotData.length === 0) return [];
 
-  // Color coding berdasarkan nilai RSL dan expected range
-  const getRslColor = (
-    value: number | null,
-    expectedMin: number,
-    expectedMax: number
-  ): string => {
-    if (value === null) return "bg-gray-100";
-
-    const normalMin = expectedMin || -60;
-    const normalMax = expectedMax || -40;
-
-    if (value > normalMax) return "bg-red-200"; // Terlalu kuat
-    if (value >= normalMax - 15) return "bg-green-200"; // Optimal
-    if (value >= normalMin + 5) return "bg-yellow-200"; // Warning
-    if (value >= normalMin) return "bg-orange-200"; // Sub-optimal
-    return "bg-red-300"; // Critical
-  };
-
-  const getRslTextColor = (
-    value: number | null,
-    expectedMin: number,
-    expectedMax: number
-  ): string => {
-    if (value === null) return "text-gray-400";
-
-    const normalMin = expectedMin || -60;
-    const normalMax = expectedMax || -40;
-
-    if (value > normalMax) return "text-red-800";
-    if (value >= normalMax - 15) return "text-green-800";
-    if (value >= normalMin + 5) return "text-yellow-800";
-    if (value >= normalMin) return "text-orange-800";
-    return "text-red-900";
-  };
-
-  const handleExport = async () => {
-    try {
-      await necSignalApi.exportYearlyExcel(
-        selectedYear,
-        selectedTower === "all" ? undefined : selectedTower
-      );
-      toast({
-        title: "Export Successful",
-        description: `Data exported for ${selectedYear}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Could not export data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ============================================
-  // CHART DATA PREPARATION
-  // ============================================
-  const prepareChartData = (): NecChartData[] => {
-    const chartData: NecChartData[] = months.map((month, idx) => ({
-      month: formatMonthKey(month),
-      monthIndex: idx + 1,
-    }));
+    const statusCount = {
+      too_strong: 0,
+      optimal: 0,
+      warning: 0,
+      sub_optimal: 0,
+      critical: 0,
+    };
 
     pivotData.forEach((link) => {
-      months.forEach((month, idx) => {
-        const key = formatMonthKey(month);
-        const value = link.monthlyValues[key];
-        chartData[idx][link.linkName] = value ?? null;
+      Object.values(link.monthlyValues).forEach((value) => {
+        if (value !== null && value !== undefined) {
+          const status = getRslStatus(value);
+          if (status !== "no_data") {
+            statusCount[status as keyof typeof statusCount]++;
+          }
+        }
       });
     });
 
+    const pieData = [
+      { name: "Too Strong", value: statusCount.too_strong, fill: "#ef4444" },
+      { name: "Optimal", value: statusCount.optimal, fill: "#10b981" },
+      { name: "Warning", value: statusCount.warning, fill: "#f59e0b" },
+      { name: "Sub-optimal", value: statusCount.sub_optimal, fill: "#fb923c" },
+      { name: "Critical", value: statusCount.critical, fill: "#dc2626" },
+    ].filter((item) => item.value > 0);
+
+    return pieData;
+  };
+
+  const prepareChartData = () => {
+    const chartData: Array<{
+      month: string;
+      [key: string]: string | number | null | undefined;
+    }> = months.map((month) => ({ month }));
+    pivotData.forEach((link) => {
+      months.forEach((month) => {
+        const key = formatMonthKey(month);
+        const value = link.monthlyValues[key];
+        chartData[months.indexOf(month)][link.linkName] =
+          value !== null && value !== undefined ? value : null;
+      });
+    });
     return chartData;
   };
 
-  // ============================================
-  // TOWER STATISTICS
-  // ============================================
-  const calculateTowerStats = (): NecTowerStats[] => {
-    const towerGroups = pivotData.reduce((acc, link) => {
-      if (!acc[link.tower]) {
-        acc[link.tower] = [];
-      }
-      acc[link.tower].push(link);
-      return acc;
-    }, {} as Record<string, NecYearlyPivotDto[]>);
-
-    return Object.entries(towerGroups).map(([towerName, links]) => {
-      let totalRsl = 0;
-      let count = 0;
-      let healthy = 0;
-      let warning = 0;
-      let critical = 0;
-
-      links.forEach((link) => {
-        Object.values(link.monthlyValues).forEach((value) => {
-          if (value !== null) {
-            totalRsl += value;
-            count++;
-
-            const normalMin = link.expectedRslMin || -60;
-            const normalMax = link.expectedRslMax || -40;
-
-            if (value >= normalMax - 15 && value <= normalMax) {
-              healthy++;
-            } else if (value >= normalMin + 5) {
-              warning++;
-            } else {
-              critical++;
-            }
-          }
-        });
-      });
-
-      return {
-        towerName,
-        totalLinks: links.length,
-        avgRsl: count > 0 ? Math.round((totalRsl / count) * 10) / 10 : 0,
-        healthyLinks: healthy,
-        warningLinks: warning,
-        criticalLinks: critical,
-      };
-    });
+  const openNoteModal = (
+    linkName: string,
+    month: string,
+    currentNote?: string
+  ) => {
+    setEditingNote({ linkName, month, currentNote });
+    setNoteText(currentNote || "");
+    setIsNoteModalOpen(true);
   };
 
-  const towerStats = calculateTowerStats();
-  const chartData = prepareChartData();
+  const saveNote = () => {
+    if (!editingNote) return;
 
-  // Dynamic colors for each link
+    setPivotData((prev) =>
+      prev.map((link) => {
+        if (link.linkName === editingNote.linkName) {
+          return {
+            ...link,
+            notes: { ...link.notes, [editingNote.month]: noteText },
+          };
+        }
+        return link;
+      })
+    );
+
+    setIsNoteModalOpen(false);
+    setEditingNote(null);
+    setNoteText("");
+  };
+
+  const chartData = prepareChartData();
   const COLORS = [
     "#3b82f6",
     "#ef4444",
@@ -314,18 +293,16 @@ const NecRslPivotTable: React.FC = () => {
     "#14b8a6",
     "#f97316",
     "#6366f1",
+    "#84cc16",
+    "#a855f7",
   ];
 
   return (
     <div className="space-y-4">
-      {/* Header Controls */}
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-6 w-6" />
-              RSL History - Pivot Table View ({selectedYear})
-            </CardTitle>
+            <CardTitle>RSL History - Pivot Table ({selectedYear})</CardTitle>
             <div className="flex flex-wrap gap-2">
               <Select value={selectedTower} onValueChange={setSelectedTower}>
                 <SelectTrigger className="w-[150px]">
@@ -363,367 +340,518 @@ const NecRslPivotTable: React.FC = () => {
                 onClick={fetchYearlyData}
                 disabled={isLoading}
               >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
-                />
+                <span className={`mr-2 ${isLoading ? "animate-spin" : ""}`}>
+                  ↻
+                </span>
                 Refresh
-              </Button>
-
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4 mr-2" />
-                Export Excel
               </Button>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Statistics Cards */}
-      {towerStats.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {towerStats.map((stat) => (
-            <Card key={stat.towerName}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.towerName}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Total Links</span>
-                    <span className="font-bold">{stat.totalLinks}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Avg RSL</span>
-                    <span className="font-bold">
-                      {stat.avgRsl.toFixed(1)} dBm
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 mt-2">
-                    <div className="text-center">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" />
-                      <div className="text-xs font-semibold">
-                        {stat.healthyLinks}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600 mx-auto" />
-                      <div className="text-xs font-semibold">
-                        {stat.warningLinks}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <TrendingUp className="h-4 w-4 text-red-600 mx-auto" />
-                      <div className="text-xs font-semibold">
-                        {stat.criticalLinks}
-                      </div>
-                    </div>
+      {/* Charts - Improved Layout */}
+      <div className="space-y-6">
+        {/* Line Chart - Full Width */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-600 rounded"></div>
+              Grafik Garis Rata-rata RSL per Link
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Info Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="w-5 h-5 mt-0.5 flex-shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold mb-1">
+                      Menampilkan {pivotData.length} link
+                    </p>
+                    <p className="text-xs">
+                      Hover pada garis untuk melihat detail nilai. Scroll legend
+                      di bawah untuk melihat semua link.
+                    </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              </div>
 
-      {/* Main Content Tabs */}
-      <Tabs
-        value={activeView}
-        onValueChange={(v) => setActiveView(v as "table" | "chart")}
-      >
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="table">Pivot Table</TabsTrigger>
-          <TabsTrigger value="chart">Charts</TabsTrigger>
-        </TabsList>
+              {/* Chart */}
+              <div className="bg-gradient-to-br from-gray-50 to-white border rounded-lg p-4">
+                <ResponsiveContainer width="100%" height={500}>
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 20, right: 60, left: 20, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="month"
+                      angle={0}
+                      textAnchor="middle"
+                      height={30}
+                      tick={{ fontSize: 12, fill: "#6b7280" }}
+                    />
+                    <YAxis
+                      domain={[-70, -30]}
+                      label={{
+                        value: "RSL (dBm)",
+                        angle: -90,
+                        position: "insideLeft",
+                        style: { fontSize: 12, fill: "#6b7280" },
+                      }}
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                    />
+                    <Tooltip
+                      formatter={(value) => {
+                        if (value === null || value === undefined)
+                          return "No Data";
+                        return `${value} dBm`;
+                      }}
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.96)",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                    />
 
-        {/* PIVOT TABLE VIEW */}
-        <TabsContent value="table">
-          <Card>
-            <CardContent className="pt-6">
-              {isLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                  <span className="ml-3">Loading RSL data...</span>
+                    {/* Reference Lines */}
+                    <ReferenceLine
+                      y={-45}
+                      stroke="#10b981"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Optimal (-45)",
+                        position: "right",
+                        fill: "#10b981",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-55}
+                      stroke="#f59e0b"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Warning (-55)",
+                        position: "right",
+                        fill: "#f59e0b",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-60}
+                      stroke="#fb923c"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Sub-opt (-60)",
+                        position: "right",
+                        fill: "#fb923c",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-65}
+                      stroke="#dc2626"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Critical (-65)",
+                        position: "right",
+                        fill: "#dc2626",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+
+                    {/* Lines for all links */}
+                    {pivotData.map((link, idx) => (
+                      <Line
+                        key={link.linkName}
+                        type="monotone"
+                        dataKey={link.linkName}
+                        stroke={COLORS[idx % COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 3, strokeWidth: 2 }}
+                        activeDot={{ r: 5 }}
+                        connectNulls={false}
+                        name={link.linkName}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Scrollable Legend */}
+              <div className="border rounded-lg bg-white">
+                <div className="bg-gray-50 px-4 py-2 border-b">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Legend - Daftar Link
+                  </h4>
                 </div>
-              ) : pivotData.length > 0 ? (
-                <>
-                  <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full border-collapse text-sm bg-white">
-                      <thead>
-                        {/* Header 1: Title */}
-                        <tr className="bg-blue-600 text-white">
-                          <th className="border border-gray-300 px-4 py-3 text-left font-bold sticky left-0 bg-blue-600 z-10 min-w-[60px]">
-                            No
-                          </th>
-                          <th className="border border-gray-300 px-4 py-3 text-left font-bold sticky left-[60px] bg-blue-600 z-10 min-w-[220px]">
-                            Link
-                          </th>
-                          <th
-                            colSpan={12}
-                            className="border border-gray-300 px-4 py-3 text-center font-bold"
-                          >
-                            RSL - dBm
-                          </th>
-                        </tr>
-
-                        {/* Header 2: Month Names */}
-                        <tr className="bg-blue-500 text-white">
-                          <th className="border border-gray-300 px-4 py-2"></th>
-                          <th className="border border-gray-300 px-4 py-2"></th>
-                          {months.map((month, idx) => (
-                            <th
-                              key={idx}
-                              className="border border-gray-300 px-3 py-2 text-center font-semibold min-w-[100px] whitespace-nowrap"
-                            >
-                              {formatMonthKey(month)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {pivotData.map((row, rowIdx) => (
-                          <tr
-                            key={rowIdx}
-                            className="hover:bg-gray-50 even:bg-gray-50/50"
-                          >
-                            {/* Column 1: No */}
-                            <td className="border border-gray-300 px-4 py-3 text-center font-medium sticky left-0 bg-white z-10">
-                              {rowIdx + 1}
-                            </td>
-
-                            {/* Column 2: Link Name */}
-                            <td className="border border-gray-300 px-4 py-3 sticky left-[60px] bg-white z-10">
-                              <div className="font-semibold text-gray-900">
-                                {row.linkName}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Tower: {row.tower}
-                              </div>
-                            </td>
-
-                            {/* Columns 3-14: Monthly Values */}
-                            {months.map((month, monthIdx) => {
-                              const key = formatMonthKey(month);
-                              const value = row.monthlyValues[key];
-
-                              return (
-                                <td
-                                  key={monthIdx}
-                                  className={`border border-gray-300 px-3 py-3 text-center font-mono text-sm ${getRslColor(
-                                    value,
-                                    row.expectedRslMin,
-                                    row.expectedRslMax
-                                  )} ${getRslTextColor(
-                                    value,
-                                    row.expectedRslMin,
-                                    row.expectedRslMax
-                                  )}`}
-                                >
-                                  <div className="font-bold">
-                                    {value !== null && value !== undefined
-                                      ? value.toFixed(1)
-                                      : "-"}
-                                  </div>
-                                  {value !== null && value !== undefined && (
-                                    <div className="text-xs opacity-75 mt-1">
-                                      dBm
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Legend - Perbaikan */}
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
-                    <h4 className="font-semibold text-gray-700 mb-3">
-                      Color Legend
-                    </h4>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-green-200 border border-gray-300 rounded"></div>
-                        <span className="font-medium">
-                          Optimal (-45 to -30 dBm)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-yellow-200 border border-gray-300 rounded"></div>
-                        <span className="font-medium">
-                          Warning (-55 to -45 dBm)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-orange-200 border border-gray-300 rounded"></div>
-                        <span className="font-medium">
-                          Sub-optimal (-60 to -55 dBm)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-red-200 border border-gray-300 rounded"></div>
-                        <span className="font-medium">
-                          Too Strong (&gt; -30 dBm)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-red-300 border border-gray-300 rounded"></div>
-                        <span className="font-medium">
-                          Critical (&lt; -60 dBm)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-4 bg-gray-100 border border-gray-300 rounded"></div>
-                        <span className="font-medium">No Data</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <Alert className="mt-4">
-                  <AlertDescription>
-                    No RSL data found for {selectedYear}.
-                    {selectedTower !== "all" && ` Filter: ${selectedTower}`}
-                    <br />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={fetchYearlyData}
-                    >
-                      Try Again
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* CHART VIEW */}
-        <TabsContent value="chart" className="space-y-4">
-          {pivotData.length > 0 ? (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>RSL Trend Analysis - All Links</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis
-                        domain={[-100, -20]}
-                        label={{
-                          value: "RSL (dBm)",
-                          angle: -90,
-                          position: "insideLeft",
-                        }}
-                      />
-                      <Tooltip />
-                      <Legend />
-                      <ReferenceLine
-                        y={-40}
-                        stroke="red"
-                        strokeDasharray="3 3"
-                        label="Max Threshold"
-                      />
-                      <ReferenceLine
-                        y={-60}
-                        stroke="orange"
-                        strokeDasharray="3 3"
-                        label="Min Threshold"
-                      />
-                      {pivotData.slice(0, 10).map((link, idx) => (
-                        <Line
-                          key={link.linkName}
-                          type="monotone"
-                          dataKey={link.linkName}
-                          stroke={COLORS[idx % COLORS.length]}
-                          strokeWidth={2}
-                          dot={{ r: 4 }}
-                          activeDot={{ r: 6 }}
-                          connectNulls
+                <div className="max-h-40 overflow-y-auto p-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {pivotData.map((link, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <div
+                          className="w-8 h-0.5 flex-shrink-0"
+                          style={{
+                            backgroundColor: COLORS[idx % COLORS.length],
+                          }}
                         />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                        <span className="truncate" title={link.linkName}>
+                          {link.linkName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Average RSL per Link ({selectedYear})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                      data={pivotData.map((link) => {
-                        const validValues = Object.values(
-                          link.monthlyValues
-                        ).filter((v) => v !== null) as number[];
-                        const avgRsl =
-                          validValues.length > 0
-                            ? validValues.reduce((sum, v) => sum + v, 0) /
-                              validValues.length
-                            : 0;
-
-                        return {
-                          name: link.linkName,
-                          avgRsl: avgRsl,
-                          tower: link.tower,
-                        };
-                      })}
+        {/* Pie Chart - Full Width */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-green-600 rounded"></div>
+              Distribusi Status Link
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              {/* Chart */}
+              <div className="flex justify-center">
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={generatePieChartData()}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={(entry) =>
+                        `${entry.name}: ${((entry.percent ?? 0) * 100).toFixed(
+                          0
+                        )}%`
+                      }
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="name"
-                        angle={-45}
-                        textAnchor="end"
-                        height={100}
+                      {generatePieChartData().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [`${value} data points`, "Jumlah"]}
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.96)",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Statistics */}
+              <div className="space-y-3">
+                {generatePieChartData().map((entry, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: entry.fill }}
                       />
-                      <YAxis
-                        domain={[-100, -20]}
-                        label={{
-                          value: "Avg RSL (dBm)",
-                          angle: -90,
-                          position: "insideLeft",
-                        }}
-                      />
-                      <Tooltip />
-                      <Legend />
-                      <ReferenceLine
-                        y={-40}
-                        stroke="red"
-                        strokeDasharray="3 3"
-                      />
-                      <ReferenceLine
-                        y={-60}
-                        stroke="orange"
-                        strokeDasharray="3 3"
-                      />
-                      <Bar dataKey="avgRsl" fill="#3b82f6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                      <span className="font-medium text-sm">{entry.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold">{entry.value}</p>
+                      <p className="text-xs text-gray-500">data points</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pivot Table */}
+      <Card>
+        <CardContent className="pt-6">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+              <span className="ml-3">Loading RSL data...</span>
+            </div>
+          ) : pivotData.length > 0 ? (
+            <>
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full border-collapse text-sm bg-white">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="border px-4 py-3 sticky left-0 bg-blue-600 z-10 min-w-[60px]">
+                        No
+                      </th>
+                      <th className="border px-4 py-3 sticky left-[60px] bg-blue-600 z-10 min-w-[220px]">
+                        Link
+                      </th>
+                      <th colSpan={12} className="border px-4 py-3">
+                        RSL - dBm
+                      </th>
+                    </tr>
+                    <tr className="bg-blue-500 text-white">
+                      <th className="border px-4 py-2"></th>
+                      <th className="border px-4 py-2"></th>
+                      {months.map((month, idx) => (
+                        <th
+                          key={idx}
+                          className="border px-3 py-2 min-w-[100px]"
+                        >
+                          {formatMonthKey(month)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pivotData.map((row, rowIdx) => (
+                      <tr key={rowIdx} className="group hover:bg-gray-50">
+                        <td className="border px-4 py-3 text-center sticky left-0 bg-white z-10 group-hover:bg-gray-50">
+                          {rowIdx + 1}
+                        </td>
+                        <td className="border px-4 py-3 sticky left-[60px] bg-white z-10 group-hover:bg-gray-50">
+                          <div className="font-semibold">{row.linkName}</div>
+                          <div className="text-xs text-gray-500">
+                            Tower: {row.tower}
+                          </div>
+                        </td>
+                        {months.map((month, monthIdx) => {
+                          const key = formatMonthKey(month);
+                          const value = row.monthlyValues[key];
+                          const note = row.notes?.[key];
+                          const isDataPresent =
+                            value !== null && value !== undefined;
+                          return (
+                            <td
+                              key={monthIdx}
+                              onMouseEnter={() =>
+                                setHoveredCell({
+                                  rowIdx,
+                                  colIdx: monthIdx,
+                                  linkName: row.linkName,
+                                  month: month,
+                                  value: value,
+                                  note: note,
+                                })
+                              }
+                              onMouseLeave={() => setHoveredCell(null)}
+                              className={`border px-2 py-2 text-center font-mono relative cursor-pointer ${
+                                isDataPresent
+                                  ? `${getRslColor(value)} ${getRslTextColor(
+                                      value
+                                    )}`
+                                  : "bg-gray-50"
+                              } ${
+                                hoveredCell?.rowIdx === rowIdx &&
+                                hoveredCell?.colIdx === monthIdx
+                                  ? "ring-2 ring-blue-500"
+                                  : ""
+                              }`}
+                            >
+                              {isDataPresent ? (
+                                <>
+                                  <div className="font-bold">
+                                    {value.toFixed(1)}
+                                    {note && (
+                                      <span className="ml-1 text-blue-600 text-xs">
+                                        📝
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs opacity-75">dBm</div>
+                                </>
+                              ) : note ? (
+                                <div className="text-xs text-gray-600 italic px-1">
+                                  {note.length > 20
+                                    ? `${note.substring(0, 20)}...`
+                                    : note}
+                                </div>
+                              ) : (
+                                <div className="text-gray-400 text-sm">-</div>
+                              )}
+
+                              {hoveredCell?.rowIdx === rowIdx &&
+                                hoveredCell?.colIdx === monthIdx && (
+                                  <div
+                                    className={`absolute left-1/2 transform -translate-x-1/2 ${
+                                      rowIdx < 3
+                                        ? "top-full mt-2"
+                                        : "bottom-full mb-2"
+                                    } w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-lg z-50`}
+                                  >
+                                    <div className="relative">
+                                      <div
+                                        className={`absolute left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-transparent ${
+                                          rowIdx < 3
+                                            ? "-top-2 border-b-8 border-b-gray-900"
+                                            : "-bottom-2 border-t-8 border-t-gray-900"
+                                        }`}
+                                      />
+                                      <div className="mb-2">
+                                        <h4 className="font-bold">
+                                          {row.linkName}
+                                        </h4>
+                                        <p className="text-gray-300 text-xs">
+                                          {month} {selectedYear}
+                                        </p>
+                                      </div>
+                                      {isDataPresent && (
+                                        <div className="mb-3">
+                                          <p className="text-lg font-bold">
+                                            {value?.toFixed(1)} dBm
+                                          </p>
+                                          <span
+                                            className={`px-2 py-1 rounded text-xs text-black font-medium ${getRslColor(
+                                              value
+                                            ).replace("bg-", "bg-")}`}
+                                          >
+                                            {getRslStatusLabel(value)}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {note && (
+                                        <div className="mb-3 p-2 bg-yellow-900/30 rounded">
+                                          <p className="font-semibold">
+                                            📝 Catatan:
+                                          </p>
+                                          <p className="text-sm">{note}</p>
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={() =>
+                                          openNoteModal(row.linkName, key, note)
+                                        }
+                                        className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+                                      >
+                                        {note ? "✏️ Edit Note" : "📝 Add Note"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="font-semibold mb-2">Status Legend</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-red-200 border rounded"></div>
+                    <span>Too Strong (-30 to -45)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-green-200 border rounded"></div>
+                    <span>Optimal (-45 to -55)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-yellow-200 border rounded"></div>
+                    <span>Warning (-55 to -60)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-orange-200 border rounded"></div>
+                    <span>Sub-optimal (-60 to -65)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-red-300 border rounded"></div>
+                    <span>Critical (&lt; -65)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-4 bg-gray-100 border rounded"></div>
+                    <span>No Data</span>
+                  </div>
+                </div>
+              </div>
             </>
           ) : (
             <Alert>
               <AlertDescription>
-                No chart data available. Load data in Table view first.
+                No RSL data found for {selectedYear}.
               </AlertDescription>
             </Alert>
           )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Note Modal */}
+      <Dialog open={isNoteModalOpen} onOpenChange={setIsNoteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingNote?.currentNote ? "Edit" : "Add"} Note
+            </DialogTitle>
+          </DialogHeader>
+          {editingNote && (
+            <div className="space-y-4">
+              <div>
+                <Label>Link</Label>
+                <p className="text-sm font-semibold">{editingNote.linkName}</p>
+              </div>
+              <div>
+                <Label>Month</Label>
+                <p className="text-sm font-semibold">{editingNote.month}</p>
+              </div>
+              <div>
+                <Label htmlFor="note">Note/Keterangan</Label>
+                <textarea
+                  id="note"
+                  className="w-full p-2 border rounded"
+                  placeholder="Contoh: Maintenance, Dismantled, Obstacle, dll"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNoteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveNote}>Save Note</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
-
 export default NecRslPivotTable;
