@@ -78,6 +78,10 @@ const errorInterceptor = (error: any) => {
     code: error.code,
     url: error.config?.url,
     response: error.response?.data,
+    method: error.config?.method,
+    statusText: error.response?.statusText,
+    data: error.response?.data,
+    headers: error.config?.headers,
   });
 
   if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
@@ -264,7 +268,7 @@ export const authApi = {
       email: userData.email,
       fullName: userData.fullName,
     });
-
+  
     const requestData = {
       username: userData.username,
       email: userData.email,
@@ -272,10 +276,34 @@ export const authApi = {
       confirmPassword: userData.password,
       fullName: userData.fullName,
     };
-
-    const response = await api.post("/api/auth/register", requestData);
-    console.log("✅ Register response:", response.data);
-    return response.data;
+  
+    try {
+      const response = await api.post("/api/auth/register", requestData);
+      console.log("✅ Register response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Register error:", error.response?.data);
+      
+      const responseData = error.response?.data;
+      
+      if (!responseData) {
+        throw new Error("Tidak dapat terhubung ke server");
+      }
+  
+      // Extract error message from standardized format
+      if (responseData.data?.errors) {
+        const errors = responseData.data.errors;
+        const firstKey = Object.keys(errors)[0];
+        const firstError = errors[firstKey];
+        throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+      }
+      
+      if (responseData.message && responseData.message !== "Bad Request") {
+        throw new Error(responseData.message);
+      }
+      
+      throw new Error("Registrasi gagal. Silakan coba lagi.");
+    }
   },
 
   changePassword: async (

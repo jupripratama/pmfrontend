@@ -74,44 +74,45 @@ const Register: React.FC = () => {
       setError("Username harus diisi");
       return false;
     }
-
+  
+    // ✅ FIX: konsisten dengan pesan error
     if (formData.username.length < 2) {
-      setError("Username minimal 4 karakter");
+      setError("Username minimal 2 karakter");
       return false;
     }
-
+  
     if (!formData.email.trim()) {
       setError("Email harus diisi");
       return false;
     }
-
+  
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError("Format email tidak valid");
       return false;
     }
-
+  
     if (!formData.fullName.trim()) {
       setError("Nama lengkap harus diisi");
       return false;
     }
-
+  
     if (!formData.password) {
       setError("Password harus diisi");
       return false;
     }
-
+  
     const isPasswordValid = Object.values(passwordStrength).every((val) => val);
     if (!isPasswordValid) {
       setError("Password belum memenuhi semua kriteria keamanan");
       return false;
     }
-
+  
     if (formData.password !== formData.confirmPassword) {
       setError("Konfirmasi password tidak cocok");
       return false;
     }
-
+  
     return true;
   };
 

@@ -1,8 +1,8 @@
 // components/Navbar.tsx - FIXED VERSION (NO INFINITE LOOP)
-import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useRef, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   LayoutDashboard,
@@ -18,7 +18,7 @@ import {
   Menu,
   X,
   ClipboardList,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface NavbarProps {
   activeTab: string;
@@ -55,20 +55,26 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
   // === CLICK OUTSIDE ===
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsProfileOpen(false);
       }
-      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
+      if (
+        mobileDropdownRef.current &&
+        !mobileDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsCallRecordsOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const getUserInitials = () => {
-    if (!currentUser?.fullName) return 'U';
-    const names = currentUser.fullName.split(' ');
+    if (!currentUser?.fullName) return "U";
+    const names = currentUser.fullName.split(" ");
     if (names.length >= 2) {
       return `${names[0][0]}${names[1][0]}`.toUpperCase();
     }
@@ -76,9 +82,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
   };
 
   const hasPermission = (permission: string): boolean => {
-    const permissions = localStorage.getItem('permissions');
+    const permissions = localStorage.getItem("permissions");
     if (!permissions) return false;
-    
+
     try {
       const permList: string[] = JSON.parse(permissions);
       return permList.includes(permission);
@@ -89,76 +95,83 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
   const navItems: NavItem[] = [
     {
-      name: 'Dashboard',
-      path: '/dashboard',
+      name: "Dashboard",
+      path: "/dashboard",
       icon: LayoutDashboard,
-      id: 'dashboard',
+      id: "dashboard",
       forAll: false,
-      permission: 'dashboard.view',
+      permission: "dashboard.view",
     },
     {
-      name: 'Docs',
-      path: '/docs',
+      name: "Docs",
+      path: "/docs",
       icon: BookOpen,
-      id: 'docs',
+      id: "docs",
       forAll: false,
-      permission: 'docs.view',
+      permission: "docs.view",
     },
     {
-      name: 'Inspeksi KPC',
-      path: '/inspeksi-kpc',
+      name: "Inspeksi KPC",
+      path: "/inspeksi-kpc",
       icon: ClipboardList,
-      id: 'inspeksi-kpc',
-      permission: 'inspeksi.temuan-kpc.view',
+      id: "inspeksi-kpc",
+      permission: "inspeksi.temuan-kpc.view",
     },
-     {
-      name: 'Fleet Statistics',
-      path: '/fleet-statistics',
+    {
+      name: "Fleet Statistics",
+      path: "/fleet-statistics",
       icon: TrendingUp,
-      id: 'fleet-statistics',
-      permission: 'callrecord.view',
+      id: "fleet-statistics",
+      permission: "callrecord.view",
+    },
+    {
+      name: "NEC History",
+      path: "/nec-history",
+      icon: TrendingUp,
+      id: "nec-history",
+      permission: "nec.signal.view",
     },
   ];
 
   const callRecordsMenu: NavItem[] = [
     {
-      name: 'View Records',
-      path: '/callrecords',
+      name: "View Records",
+      path: "/callrecords",
       icon: Phone,
-      id: 'callrecords',
-      permission: 'callrecord.view',
+      id: "callrecords",
+      permission: "callrecord.view",
     },
     {
-      name: 'Upload CSV',
-      path: '/upload',
+      name: "Upload CSV",
+      path: "/upload",
       icon: Upload,
-      id: 'upload',
-      permission: 'callrecord.import',
+      id: "upload",
+      permission: "callrecord.import",
     },
     {
-      name: 'Export Data',
-      path: '/export',
+      name: "Export Data",
+      path: "/export",
       icon: Download,
-      id: 'export',
-      permission: 'callrecord.view-any',
+      id: "export",
+      permission: "callrecord.view-any",
     },
   ];
 
   const settingsMenuItem: NavItem = {
-    name: 'Settings',
-    path: '/settings',
+    name: "Settings",
+    path: "/settings",
     icon: Settings,
-    id: 'settings',
-    permission: 'role.view',
+    id: "settings",
+    permission: "role.view",
   };
 
-  const filteredNavItems = navItems.filter(item => {
+  const filteredNavItems = navItems.filter((item) => {
     if (item.forAll) return true;
     if (item.permission) return hasPermission(item.permission);
     return false;
   });
 
-  const filteredCallRecords = callRecordsMenu.filter(item => {
+  const filteredCallRecords = callRecordsMenu.filter((item) => {
     if (item.forAll) return true;
     if (item.permission) return hasPermission(item.permission);
     return false;
@@ -166,7 +179,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   return (
@@ -178,7 +191,11 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/dashboard" onClick={() => setActiveTab('dashboard')} className="flex items-center space-x-2 group">
+          <Link
+            to="/dashboard"
+            onClick={() => setActiveTab("dashboard")}
+            className="flex items-center space-x-2 group"
+          >
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.5 }}
@@ -204,8 +221,8 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                   onClick={() => setActiveTab(item.id)}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-white/25 text-white shadow-lg backdrop-blur-lg'
-                      : 'text-white/80 hover:bg-white/15 hover:text-white'
+                      ? "bg-white/25 text-white shadow-lg backdrop-blur-lg"
+                      : "text-white/80 hover:bg-white/15 hover:text-white"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -222,7 +239,11 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 >
                   <Phone className="w-4 h-4" />
                   <span>Call Records</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${isCallRecordsOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      isCallRecordsOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
 
                 <AnimatePresence>
@@ -246,7 +267,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                               setIsCallRecordsOpen(false);
                             }}
                             className={`flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${
-                              isActive ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'
+                              isActive
+                                ? "bg-blue-50 text-blue-600 font-medium"
+                                : "text-gray-700 hover:bg-gray-50"
                             }`}
                           >
                             <Icon className="w-5 h-5" />
@@ -266,15 +289,14 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 onClick={() => setActiveTab(settingsMenuItem.id)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   location.pathname === settingsMenuItem.path
-                    ? 'bg-white/25 text-white shadow-lg backdrop-blur-lg'
-                    : 'text-white/80 hover:bg-white/15 hover:text-white'
+                    ? "bg-white/25 text-white shadow-lg backdrop-blur-lg"
+                    : "text-white/80 hover:bg-white/15 hover:text-white"
                 }`}
               >
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>
               </Link>
             )}
-
           </div>
 
           {/* Profile + Mobile */}
@@ -292,7 +314,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                     src={currentUser.photoUrl}
                     alt={currentUser.fullName}
                     className="w-9 h-9 rounded-full object-cover border-2 border-white/40 shadow-lg"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
                   />
                 ) : (
                   <motion.div
@@ -304,11 +328,19 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 )}
 
                 <div className="hidden lg:block text-left">
-                  <p className="text-sm font-semibold text-white">{currentUser?.fullName || 'User'}</p>
-                  <p className="text-xs text-white/70">{currentUser?.roleName || 'Role'}</p>
+                  <p className="text-sm font-semibold text-white">
+                    {currentUser?.fullName || "User"}
+                  </p>
+                  <p className="text-xs text-white/70">
+                    {currentUser?.roleName || "Role"}
+                  </p>
                 </div>
 
-                <ChevronDown className={`w-4 h-4 text-white/70 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-4 h-4 text-white/70 transition-transform ${
+                    isProfileOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               <AnimatePresence>
@@ -327,7 +359,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                             src={currentUser.photoUrl}
                             alt={currentUser.fullName}
                             className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
@@ -335,8 +369,12 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">{currentUser?.fullName}</p>
-                          <p className="text-xs text-gray-600 truncate">{currentUser?.email}</p>
+                          <p className="font-semibold text-gray-900 truncate">
+                            {currentUser?.fullName}
+                          </p>
+                          <p className="text-xs text-gray-600 truncate">
+                            {currentUser?.email}
+                          </p>
                           <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium">
                             {currentUser?.roleName}
                           </div>
@@ -346,7 +384,10 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
 
                     <Link
                       to="/profile"
-                      onClick={() => { setIsProfileOpen(false); setActiveTab('profile'); }}
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        setActiveTab("profile");
+                      }}
                       className="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                     >
                       <User className="w-5 h-5 text-blue-600" />
@@ -370,7 +411,11 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden text-white hover:bg-white/15 p-2 rounded-xl transition-all"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </button>
           </div>
         </div>
@@ -380,7 +425,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           {isMobileMenuOpen && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
+              animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden bg-white/95 backdrop-blur-xl border-t border-gray-200 rounded-b-2xl shadow-xl overflow-hidden mb-2"
             >
@@ -394,7 +439,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                         src={currentUser.photoUrl}
                         alt={currentUser.fullName}
                         className="w-12 h-12 rounded-full object-cover border-2 border-blue-200"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
@@ -402,8 +449,12 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{currentUser?.fullName}</p>
-                      <p className="text-xs text-gray-600 truncate">{currentUser?.email}</p>
+                      <p className="font-semibold text-gray-900 text-sm truncate">
+                        {currentUser?.fullName}
+                      </p>
+                      <p className="text-xs text-gray-600 truncate">
+                        {currentUser?.email}
+                      </p>
                       <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">
                         {currentUser?.roleName}
                       </div>
@@ -426,8 +477,8 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                       }}
                       className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                         isActive
-                          ? 'bg-blue-100 text-blue-700 shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? "bg-blue-100 text-blue-700 shadow-sm"
+                          : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -439,7 +490,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 {/* Call Records */}
                 {filteredCallRecords.length > 0 && (
                   <div className="pt-2 border-t border-gray-200">
-                    <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Call Records</p>
+                    <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
+                      Call Records
+                    </p>
                     {filteredCallRecords.map((item) => {
                       const Icon = item.icon;
                       const isActive = location.pathname === item.path;
@@ -453,7 +506,9 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                             setIsMobileMenuOpen(false);
                           }}
                           className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                            isActive ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'
+                            isActive
+                              ? "bg-blue-100 text-blue-700 shadow-sm"
+                              : "text-gray-700 hover:bg-gray-100"
                           }`}
                         >
                           <Icon className="w-5 h-5" />
@@ -468,7 +523,10 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
                 <div className="pt-2 mt-2 border-t border-gray-200 space-y-1">
                   <Link
                     to="/profile"
-                    onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }}
+                    onClick={() => {
+                      setActiveTab("profile");
+                      setIsMobileMenuOpen(false);
+                    }}
                     className="flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-all"
                   >
                     <User className="w-5 h-5 text-blue-600" />
