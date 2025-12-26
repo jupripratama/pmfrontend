@@ -35,54 +35,42 @@ export const necSignalApi = {
 
       console.log("📊 Raw API Response:", response.data);
 
-      // ✅ PERBAIKAN: Pastikan kita ambil data dari struktur yang benar
-      const apiData = response.data;
+      // ✅ PERBAIKAN: Handle struktur dengan meta.pagination
+      let result: PagedResultDto<NecRslHistoryItemDto>;
 
-      // Cek beberapa kemungkinan struktur response
-      let resultData: PagedResultDto<NecRslHistoryItemDto>;
-
-      if (apiData.data && Array.isArray(apiData.data.data)) {
-        // Struktur 1: { data: { data: [], ... } }
-        resultData = {
-          data: apiData.data.data || [],
-          page: apiData.data.page || 1,
-          pageSize: apiData.data.pageSize || 15,
-          totalCount: apiData.data.totalCount || 0,
-          totalPages: apiData.data.totalPages || 1,
-          hasNext: apiData.data.hasNext || false,
-          hasPrevious: apiData.data.hasPrevious || false,
-        };
-      } else if (apiData.data && Array.isArray(apiData.data)) {
-        // Struktur 2: { data: { data: [], ... } } (tanpa nested)
-        resultData = {
-          data: apiData.data || [],
-          page: apiData.page || 1,
-          pageSize: apiData.pageSize || 15,
-          totalCount: apiData.totalCount || 0,
-          totalPages: apiData.totalPages || 1,
-          hasNext: apiData.hasNext || false,
-          hasPrevious: apiData.hasPrevious || false,
+      if (response.data.meta && response.data.meta.pagination) {
+        // Struktur dengan nested meta
+        const pagination = response.data.meta.pagination;
+        result = {
+          data: response.data.data || [],
+          page: pagination.page || 1,
+          pageSize: pagination.pageSize || 15,
+          totalCount: pagination.totalCount || 0,
+          totalPages: pagination.totalPages || 1,
+          hasNext: pagination.hasNext || false,
+          hasPrevious: pagination.hasPrevious || false,
         };
       } else {
-        // Struktur 3: langsung array
-        resultData = {
-          data: apiData || [],
-          page: 1,
-          pageSize: 15,
-          totalCount: apiData?.length || 0,
-          totalPages: 1,
-          hasNext: false,
-          hasPrevious: false,
+        // Fallback: struktur flat (untuk backward compatibility)
+        result = {
+          data: response.data.data || [],
+          page: response.data.page || 1,
+          pageSize: response.data.pageSize || 15,
+          totalCount: response.data.totalCount || 0,
+          totalPages: response.data.totalPages || 1,
+          hasNext: response.data.hasNext || false,
+          hasPrevious: response.data.hasPrevious || false,
         };
       }
 
       console.log("✅ Processed result:", {
-        dataCount: resultData.data.length,
-        page: resultData.page,
-        totalCount: resultData.totalCount,
+        dataCount: result.data.length,
+        page: result.page,
+        totalCount: result.totalCount,
+        totalPages: result.totalPages,
       });
 
-      return resultData;
+      return result;
     } catch (error) {
       console.error("❌ Error in getHistories API:", error);
       throw error;
@@ -156,27 +144,30 @@ export const necSignalApi = {
     request: NecSignalImportRequestDto
   ): Promise<NecSignalImportResultDto> => {
     console.log("🔄 Starting importPivotExcel...");
-    
+
     const formData = new FormData();
     formData.append("excelFile", request.excelFile);
-    
+
     console.log("📤 FormData entries:");
     for (const pair of formData.entries()) {
       console.log(`  ${pair[0]}:`, pair[1]);
     }
-    
+
     try {
       console.log("📡 Sending to:", "/api/nec-signal/import-pivot-excel");
-      
-      const response = await api.post("/api/nec-signal/import-pivot-excel", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-      
+
+      const response = await api.post(
+        "/api/nec-signal/import-pivot-excel",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
       console.log("✅ Response received:", response.data);
       return response.data.data;
-      
     } catch (error: any) {
       console.error("❌ API Error details:");
       console.error("  Status:", error.response?.status);

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
@@ -25,7 +24,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   PieChart,
@@ -48,7 +46,6 @@ const RSL_THRESHOLDS = {
   CRITICAL: -65,
 };
 
-// Status RSL
 const getRslStatus = (value: number | null): string => {
   if (value === null) return "no_data";
   if (
@@ -68,7 +65,6 @@ const getRslStatus = (value: number | null): string => {
   return "critical";
 };
 
-// Warna latar untuk cell
 const getRslColor = (value: number | null): string => {
   const status = getRslStatus(value);
   const colors = {
@@ -82,7 +78,6 @@ const getRslColor = (value: number | null): string => {
   return colors[status as keyof typeof colors] || colors.no_data;
 };
 
-// Warna teks
 const getRslTextColor = (value: number | null): string => {
   const status = getRslStatus(value);
   const colors = {
@@ -96,7 +91,6 @@ const getRslTextColor = (value: number | null): string => {
   return colors[status as keyof typeof colors] || colors.no_data;
 };
 
-// Label status
 const getRslStatusLabel = (value: number | null): string => {
   const status = getRslStatus(value);
   const labels = {
@@ -135,8 +129,6 @@ const NecRslPivotTable: React.FC = () => {
     note?: string;
   } | null>(null);
 
-
-  // Note editing
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<{
     linkName: string;
@@ -164,7 +156,6 @@ const NecRslPivotTable: React.FC = () => {
     return `${month}-${selectedYear.toString().slice(-2)}`;
   };
 
-  // Fetch hanya tower unik (untuk dropdown)
   const fetchAvailableTowers = async () => {
     try {
       const allData = await necSignalApi.getYearlyPivot(selectedYear);
@@ -177,7 +168,6 @@ const NecRslPivotTable: React.FC = () => {
     }
   };
 
-  // Fetch data pivot (dengan filter tower)
   const fetchYearlyData = async () => {
     setIsLoading(true);
     try {
@@ -212,10 +202,9 @@ const NecRslPivotTable: React.FC = () => {
     fetchYearlyData();
   }, [selectedYear, selectedTower]);
 
-  // Pie chart data
   const generatePieChartData = () => {
     if (!pivotData || pivotData.length === 0) return [];
-    
+
     const statusCount = {
       too_strong: 0,
       optimal: 0,
@@ -223,10 +212,9 @@ const NecRslPivotTable: React.FC = () => {
       sub_optimal: 0,
       critical: 0,
     };
-  
+
     pivotData.forEach((link) => {
       Object.values(link.monthlyValues).forEach((value) => {
-        // ✅ Only count valid values (skip null/undefined)
         if (value !== null && value !== undefined) {
           const status = getRslStatus(value);
           if (status !== "no_data") {
@@ -235,7 +223,7 @@ const NecRslPivotTable: React.FC = () => {
         }
       });
     });
-  
+
     const pieData = [
       { name: "Too Strong", value: statusCount.too_strong, fill: "#ef4444" },
       { name: "Optimal", value: statusCount.optimal, fill: "#10b981" },
@@ -243,31 +231,26 @@ const NecRslPivotTable: React.FC = () => {
       { name: "Sub-optimal", value: statusCount.sub_optimal, fill: "#fb923c" },
       { name: "Critical", value: statusCount.critical, fill: "#dc2626" },
     ].filter((item) => item.value > 0);
-  
+
     return pieData;
   };
 
-  // Line chart data
   const prepareChartData = () => {
     const chartData: Array<{
       month: string;
       [key: string]: string | number | null | undefined;
     }> = months.map((month) => ({ month }));
-  
     pivotData.forEach((link) => {
       months.forEach((month) => {
         const key = formatMonthKey(month);
         const value = link.monthlyValues[key];
-        // ✅ Only include valid (non-null) values in chart
-        chartData[months.indexOf(month)][link.linkName] = 
+        chartData[months.indexOf(month)][link.linkName] =
           value !== null && value !== undefined ? value : null;
       });
     });
-
     return chartData;
   };
 
-  // Note modal
   const openNoteModal = (
     linkName: string,
     month: string,
@@ -298,7 +281,6 @@ const NecRslPivotTable: React.FC = () => {
     setNoteText("");
   };
 
-  // Data untuk chart
   const chartData = prepareChartData();
   const COLORS = [
     "#3b82f6",
@@ -307,6 +289,12 @@ const NecRslPivotTable: React.FC = () => {
     "#f59e0b",
     "#8b5cf6",
     "#06b6d4",
+    "#ec4899",
+    "#14b8a6",
+    "#f97316",
+    "#6366f1",
+    "#84cc16",
+    "#a855f7",
   ];
 
   return (
@@ -362,83 +350,253 @@ const NecRslPivotTable: React.FC = () => {
         </CardHeader>
       </Card>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Charts - Improved Layout */}
+      <div className="space-y-6">
+        {/* Line Chart - Full Width */}
         <Card>
           <CardHeader>
-            <CardTitle>Grafik Garis Rata-rata RSL</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-600 rounded"></div>
+              Grafik Garis Rata-rata RSL per Link
+            </CardTitle>
           </CardHeader>
           <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="month"
-                angle={0}
-                textAnchor="middle"
-                height={50}
-              />
-              <YAxis domain={[-70, -30]} />
-              <Tooltip 
-                formatter={(value) => {
-                  // ✅ Handle null values in tooltip
-                  if (value === null || value === undefined) return "No Data";
-                  return `${value} dBm`;
-                }}
-              />
-              <Legend />
-              
-              {/* Reference Lines */}
-              <ReferenceLine y={-45} stroke="#10b981" strokeDasharray="3 3" label="Optimal Max" />
-              <ReferenceLine y={-55} stroke="#f59e0b" strokeDasharray="3 3" label="Warning" />
-              <ReferenceLine y={-60} stroke="#fb923c" strokeDasharray="3 3" label="Sub-optimal" />
-              <ReferenceLine y={-65} stroke="#dc2626" strokeDasharray="3 3" label="Critical" />
-              
-              {pivotData.slice(0, 6).map((link, idx) => (
-                <Line
-                  key={link.linkName}
-                  type="monotone"
-                  dataKey={link.linkName}
-                  stroke={COLORS[idx % COLORS.length]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  connectNulls={false} // ✅ Don't connect null values
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+            <div className="space-y-4">
+              {/* Info Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="w-5 h-5 mt-0.5 flex-shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold mb-1">
+                      Menampilkan {pivotData.length} link
+                    </p>
+                    <p className="text-xs">
+                      Hover pada garis untuk melihat detail nilai. Scroll legend
+                      di bawah untuk melihat semua link.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart */}
+              <div className="bg-gradient-to-br from-gray-50 to-white border rounded-lg p-4">
+                <ResponsiveContainer width="100%" height={500}>
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 20, right: 60, left: 20, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="month"
+                      angle={0}
+                      textAnchor="middle"
+                      height={30}
+                      tick={{ fontSize: 12, fill: "#6b7280" }}
+                    />
+                    <YAxis
+                      domain={[-70, -30]}
+                      label={{
+                        value: "RSL (dBm)",
+                        angle: -90,
+                        position: "insideLeft",
+                        style: { fontSize: 12, fill: "#6b7280" },
+                      }}
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                    />
+                    <Tooltip
+                      formatter={(value) => {
+                        if (value === null || value === undefined)
+                          return "No Data";
+                        return `${value} dBm`;
+                      }}
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.96)",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                    />
+
+                    {/* Reference Lines */}
+                    <ReferenceLine
+                      y={-45}
+                      stroke="#10b981"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Optimal (-45)",
+                        position: "right",
+                        fill: "#10b981",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-55}
+                      stroke="#f59e0b"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Warning (-55)",
+                        position: "right",
+                        fill: "#f59e0b",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-60}
+                      stroke="#fb923c"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Sub-opt (-60)",
+                        position: "right",
+                        fill: "#fb923c",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+                    <ReferenceLine
+                      y={-65}
+                      stroke="#dc2626"
+                      strokeDasharray="3 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: "Critical (-65)",
+                        position: "right",
+                        fill: "#dc2626",
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    />
+
+                    {/* Lines for all links */}
+                    {pivotData.map((link, idx) => (
+                      <Line
+                        key={link.linkName}
+                        type="monotone"
+                        dataKey={link.linkName}
+                        stroke={COLORS[idx % COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 3, strokeWidth: 2 }}
+                        activeDot={{ r: 5 }}
+                        connectNulls={false}
+                        name={link.linkName}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Scrollable Legend */}
+              <div className="border rounded-lg bg-white">
+                <div className="bg-gray-50 px-4 py-2 border-b">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Legend - Daftar Link
+                  </h4>
+                </div>
+                <div className="max-h-40 overflow-y-auto p-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {pivotData.map((link, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <div
+                          className="w-8 h-0.5 flex-shrink-0"
+                          style={{
+                            backgroundColor: COLORS[idx % COLORS.length],
+                          }}
+                        />
+                        <span className="truncate" title={link.linkName}>
+                          {link.linkName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Pie Chart - Full Width */}
         <Card>
           <CardHeader>
-            <CardTitle>Distribusi Status Link</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-green-600 rounded"></div>
+              Distribusi Status Link
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={generatePieChartData()}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(entry) =>
-                    `${entry.name ?? ""}: ${(
-                      (entry.percent ?? 0) * 100
-                    ).toFixed(0)}%`
-                  }
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {generatePieChartData().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `${value} data points`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              {/* Chart */}
+              <div className="flex justify-center">
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={generatePieChartData()}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={(entry) =>
+                        `${entry.name}: ${((entry.percent ?? 0) * 100).toFixed(
+                          0
+                        )}%`
+                      }
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {generatePieChartData().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => [`${value} data points`, "Jumlah"]}
+                      contentStyle={{
+                        backgroundColor: "rgba(255, 255, 255, 0.96)",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Statistics */}
+              <div className="space-y-3">
+                {generatePieChartData().map((entry, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: entry.fill }}
+                      />
+                      <span className="font-medium text-sm">{entry.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold">{entry.value}</p>
+                      <p className="text-xs text-gray-500">data points</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -481,116 +639,139 @@ const NecRslPivotTable: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                  {pivotData.map((row, rowIdx) => (
-                    <tr 
-                      key={rowIdx} 
-                      className="group hover:bg-gray-50" // ✅ group di TR (parent)
-                    >
-                      <td className="border px-4 py-3 text-center sticky left-0 bg-white z-10">
-                        {rowIdx + 1}
-                      </td>
-                      <td className="border px-4 py-3 sticky left-[60px] bg-white z-10">
-                        <div className="font-semibold">{row.linkName}</div>
-                        <div className="text-xs text-gray-500">Tower: {row.tower}</div>
-                      </td>
-                      
-                      {months.map((month, monthIdx) => {
-                        const key = formatMonthKey(month);
-                        const value = row.monthlyValues[key];
-                        const note = row.notes?.[key];
-                        const isDataPresent = value !== null && value !== undefined;
-                        
-                        return (
-                          <td
-                            key={monthIdx}
-                            onMouseEnter={() => setHoveredCell({
-                              rowIdx,
-                              colIdx: monthIdx,
-                              linkName: row.linkName,
-                              month: month,
-                              value: value,
-                              note: note
-                            })}
-                            onMouseLeave={() => setHoveredCell(null)}
-                            className={`border px-2 py-2 text-center font-mono relative cursor-pointer ${
-                              isDataPresent 
-                                ? `${getRslColor(value)} ${getRslTextColor(value)}`
-                                : 'bg-gray-50'
-                            } ${
-                              hoveredCell?.rowIdx === rowIdx && hoveredCell?.colIdx === monthIdx
-                                ? 'ring-2 ring-blue-500'
-                                : ''
-                            }`}
-                          >
-                            {/* Content */}
-                            {isDataPresent ? (
-                              <>
-                                <div className="font-bold">
-                                  {value.toFixed(1)}
-                                  {note && <span className="ml-1 text-blue-600 text-xs">📝</span>}
-                                </div>
-                                <div className="text-xs opacity-75">dBm</div>
-                              </>
-                            ) : note ? (
-                              <div className="text-xs text-gray-600 italic px-1">
-                                {note.length > 20 ? `${note.substring(0, 20)}...` : note}
-                              </div>
-                            ) : (
-                              <div className="text-gray-400 text-sm">-</div>
-                            )}
-                            
-                            {/* ✅ Tooltip - PASTIKAN di DALAM td */}
-                              {hoveredCell?.rowIdx === rowIdx && hoveredCell?.colIdx === monthIdx && (
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-lg z-50 animate-in fade-in-0 zoom-in-95">
-                                {/* Tooltip content */}
-                                <div className="relative">
-                                  {/* Arrow */}
-                                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
-                                  
-                                  {/* Content */}
-                                  <div className="mb-2">
-                                    <h4 className="font-bold">{row.linkName}</h4>
-                                    <p className="text-gray-300 text-xs">{month} {selectedYear}</p>
+                    {pivotData.map((row, rowIdx) => (
+                      <tr key={rowIdx} className="group hover:bg-gray-50">
+                        <td className="border px-4 py-3 text-center sticky left-0 bg-white z-10 group-hover:bg-gray-50">
+                          {rowIdx + 1}
+                        </td>
+                        <td className="border px-4 py-3 sticky left-[60px] bg-white z-10 group-hover:bg-gray-50">
+                          <div className="font-semibold">{row.linkName}</div>
+                          <div className="text-xs text-gray-500">
+                            Tower: {row.tower}
+                          </div>
+                        </td>
+                        {months.map((month, monthIdx) => {
+                          const key = formatMonthKey(month);
+                          const value = row.monthlyValues[key];
+                          const note = row.notes?.[key];
+                          const isDataPresent =
+                            value !== null && value !== undefined;
+                          return (
+                            <td
+                              key={monthIdx}
+                              onMouseEnter={() =>
+                                setHoveredCell({
+                                  rowIdx,
+                                  colIdx: monthIdx,
+                                  linkName: row.linkName,
+                                  month: month,
+                                  value: value,
+                                  note: note,
+                                })
+                              }
+                              onMouseLeave={() => setHoveredCell(null)}
+                              className={`border px-2 py-2 text-center font-mono relative cursor-pointer ${
+                                isDataPresent
+                                  ? `${getRslColor(value)} ${getRslTextColor(
+                                      value
+                                    )}`
+                                  : "bg-gray-50"
+                              } ${
+                                hoveredCell?.rowIdx === rowIdx &&
+                                hoveredCell?.colIdx === monthIdx
+                                  ? "ring-2 ring-blue-500"
+                                  : ""
+                              }`}
+                            >
+                              {isDataPresent ? (
+                                <>
+                                  <div className="font-bold">
+                                    {value.toFixed(1)}
+                                    {note && (
+                                      <span className="ml-1 text-blue-600 text-xs">
+                                        📝
+                                      </span>
+                                    )}
                                   </div>
-                                  
-                                  {isDataPresent && (
-                                    <div className="mb-3">
-                                      <p className="text-lg font-bold">{value?.toFixed(1)} dBm</p>
-                                      <span className={`px-2 py-1 rounded text-xs text-black font-medium ${
-                                      getRslColor(value).replace('bg-', 'bg-')
-                                    }`}>
-                                      {getRslStatusLabel(value)}
-                                    </span>
-                                    </div>
-                                  )}
-                                  
-                                  {note && (
-                                    <div className="mb-3 p-2 bg-yellow-900/30 rounded">
-                                      <p className="font-semibold">📝 Catatan:</p>
-                                      <p className="text-sm">{note}</p>
-                                    </div>
-                                  )}
-                                  
-                                  <button
-                                    onClick={() => openNoteModal(row.linkName, key, note)}
-                                    className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
-                                  >
-                                    {note ? "✏️ Edit Note" : "📝 Add Note"}
-                                  </button>
+                                  <div className="text-xs opacity-75">dBm</div>
+                                </>
+                              ) : note ? (
+                                <div className="text-xs text-gray-600 italic px-1">
+                                  {note.length > 20
+                                    ? `${note.substring(0, 20)}...`
+                                    : note}
                                 </div>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    
-                    </tr>
-                  ))}
-                </tbody>
+                              ) : (
+                                <div className="text-gray-400 text-sm">-</div>
+                              )}
+
+                              {hoveredCell?.rowIdx === rowIdx &&
+                                hoveredCell?.colIdx === monthIdx && (
+                                  <div
+                                    className={`absolute left-1/2 transform -translate-x-1/2 ${
+                                      rowIdx < 3
+                                        ? "top-full mt-2"
+                                        : "bottom-full mb-2"
+                                    } w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-lg z-50`}
+                                  >
+                                    <div className="relative">
+                                      <div
+                                        className={`absolute left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-transparent ${
+                                          rowIdx < 3
+                                            ? "-top-2 border-b-8 border-b-gray-900"
+                                            : "-bottom-2 border-t-8 border-t-gray-900"
+                                        }`}
+                                      />
+                                      <div className="mb-2">
+                                        <h4 className="font-bold">
+                                          {row.linkName}
+                                        </h4>
+                                        <p className="text-gray-300 text-xs">
+                                          {month} {selectedYear}
+                                        </p>
+                                      </div>
+                                      {isDataPresent && (
+                                        <div className="mb-3">
+                                          <p className="text-lg font-bold">
+                                            {value?.toFixed(1)} dBm
+                                          </p>
+                                          <span
+                                            className={`px-2 py-1 rounded text-xs text-black font-medium ${getRslColor(
+                                              value
+                                            ).replace("bg-", "bg-")}`}
+                                          >
+                                            {getRslStatusLabel(value)}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {note && (
+                                        <div className="mb-3 p-2 bg-yellow-900/30 rounded">
+                                          <p className="font-semibold">
+                                            📝 Catatan:
+                                          </p>
+                                          <p className="text-sm">{note}</p>
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={() =>
+                                          openNoteModal(row.linkName, key, note)
+                                        }
+                                        className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+                                      >
+                                        {note ? "✏️ Edit Note" : "📝 Add Note"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
 
-              {/* Legend */}
               <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
                 <h4 className="font-semibold mb-2">Status Legend</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
@@ -673,5 +854,4 @@ const NecRslPivotTable: React.FC = () => {
     </div>
   );
 };
-
 export default NecRslPivotTable;

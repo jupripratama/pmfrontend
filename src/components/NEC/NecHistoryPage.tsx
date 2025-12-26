@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import NecRslPivotTable from "./NecRslPivotTable";
 import { useNavigate } from "react-router-dom";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,24 +33,23 @@ import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  CalendarIcon,
   Plus,
   Edit,
   Trash,
   Download,
   Upload,
-  BarChart2,
-  TrendingUp,
   Search,
-  X,
-  CheckCircle,
   AlertTriangle,
   Settings,
+  ChevronsLeft, // ⏮ Awal
+  ChevronLeft, // ◀ Sebelumnya
+  ChevronRight, // ▶ Berikutnya
+  ChevronsRight, // ⏭ Akhir
 } from "lucide-react";
 import { format } from "date-fns";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -78,11 +71,6 @@ import {
   NecSignalImportResultDto,
 } from "../../types/necSignal";
 
-interface HistoryDataPoint {
-  date: string;
-  value: number;
-}
-
 const RSL_THRESHOLDS = {
   TOO_STRONG_MAX: -30,
   TOO_STRONG_MIN: -45,
@@ -95,7 +83,6 @@ const RSL_THRESHOLDS = {
   CRITICAL: -65,
 };
 
-// ✅ Logika RSL status (hanya untuk warningMessage)
 const getRslStatus = (value: number | null): string => {
   if (value === null) return "no_data";
   if (value > RSL_THRESHOLDS.OPTIMAL_MAX) return "too_strong";
@@ -111,19 +98,6 @@ const getRslStatus = (value: number | null): string => {
   return "critical";
 };
 
-const getRslColor = (value: number | null): string => {
-  const status = getRslStatus(value);
-  const colors = {
-    too_strong: "bg-red-200",
-    optimal: "bg-green-200",
-    warning: "bg-yellow-200",
-    sub_optimal: "bg-orange-200",
-    critical: "bg-red-300",
-    no_data: "bg-gray-100",
-  };
-  return colors[status as keyof typeof colors] || colors.no_data;
-};
-
 const getAvailableYears = (histories: NecRslHistoryItemDto[]) => {
   if (histories.length === 0) return [new Date().getFullYear()];
   const years = [
@@ -134,8 +108,8 @@ const getAvailableYears = (histories: NecRslHistoryItemDto[]) => {
   return years;
 };
 
-const getRslTextColor = (value: number | null): string => {
-  const status = getRslStatus(value);
+const getRslTextColor = (value: number | null | undefined): string => {
+  const status = getRslStatus(value ?? null);
   const colors = {
     too_strong: "text-red-800",
     optimal: "text-green-800",
@@ -147,8 +121,8 @@ const getRslTextColor = (value: number | null): string => {
   return colors[status as keyof typeof colors] || colors.no_data;
 };
 
-const getRslStatusLabel = (value: number | null): string => {
-  const status = getRslStatus(value);
+const getRslStatusLabel = (value: number | null | undefined): string => {
+  const status = getRslStatus(value ?? null);
   const labels = {
     too_strong: "Terlalu Kuat",
     optimal: "Optimal",
@@ -160,28 +134,25 @@ const getRslStatusLabel = (value: number | null): string => {
   return labels[status as keyof typeof labels] || labels.no_data;
 };
 
-// ✅ Mapping status operasional ke teks & warna
 const getOperationalStatusDisplay = (
   status: number | string | null | undefined
 ) => {
   const map: Record<string, { label: string; color: string }> = {
     active: { label: "Active", color: "bg-green-100 text-green-800" },
-    0: { label: "Active", color: "bg-green-100 text-green-800" }, // ✅ Enum value
+    0: { label: "Active", color: "bg-green-100 text-green-800" },
     dismantled: { label: "Dismantled", color: "bg-red-100 text-red-800" },
-    1: { label: "Dismantled", color: "bg-red-100 text-red-800" }, // ✅ Enum value
+    1: { label: "Dismantled", color: "bg-red-100 text-red-800" },
     removed: { label: "Removed", color: "bg-gray-100 text-gray-800" },
-    2: { label: "Removed", color: "bg-gray-100 text-gray-800" }, // ✅ Enum value
+    2: { label: "Removed", color: "bg-gray-100 text-gray-800" },
     obstacle: { label: "Obstacle", color: "bg-yellow-100 text-yellow-800" },
-    3: { label: "Obstacle", color: "bg-yellow-100 text-yellow-800" }, // ✅ Enum value
+    3: { label: "Obstacle", color: "bg-yellow-100 text-yellow-800" },
   };
 
-  // ✅ Convert to string key
   let key: string;
-
   if (status === null || status === undefined) {
     key = "active";
   } else if (typeof status === "number") {
-    key = status.toString(); // ✅ Convert number to string
+    key = status.toString();
   } else if (typeof status === "string") {
     key = status.toLowerCase().trim();
   } else {
@@ -221,10 +192,8 @@ const NecHistoryPage: React.FC = () => {
     status: "active",
   });
 
-  const [importFormat, setImportFormat] = useState<"row" | "pivot">("pivot");
   const [importResult, setImportResult] =
     useState<NecSignalImportResultDto | null>(null);
-  // State for Monthly & Yearly Charts
   const [monthlyData, setMonthlyData] =
     useState<NecMonthlyHistoryResponseDto | null>(null);
   const [yearlyData, setYearlyData] = useState<NecYearlySummaryDto | null>(
@@ -232,21 +201,19 @@ const NecHistoryPage: React.FC = () => {
   );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  // State for Import/Export
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  // State for CRUD Tower & Link
   const [towers, setTowers] = useState<{ id: number; name: string }[]>([]);
   const [links, setLinks] = useState<
-    { id: number; name: string; nearEndTower: string; farEndTower: string }[]
+    {
+      id: number;
+      name: string;
+      nearEndTower: string;
+      farEndTower: string;
+    }[]
   >([]);
-  // Refs for file input
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Fetch initial data
-  useEffect(() => {
-    fetchHistories();
-    fetchTowersAndLinks();
-  }, []);
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -265,7 +232,7 @@ const NecHistoryPage: React.FC = () => {
     };
     loadInitialData();
   }, []);
-  // Fetch histories based on search and pagination
+
   const fetchHistories = async (page = 1, search = "", linkId?: number) => {
     setIsLoading(true);
     try {
@@ -275,35 +242,31 @@ const NecHistoryPage: React.FC = () => {
         search,
         necLinkId: linkId || undefined,
       };
-      console.log("📡 Fetching histories with query:", query);
-      const result = await necSignalApi.getHistories(query);
-      if (result && result.data && result.data.length > 0) {
-        console.log("📊 First history item:", result.data[0]);
-        console.log("📊 Status field:", result.data[0].status);
-      }
 
-      console.log("📊 API Response:", result);
-      if (result && result.data) {
-        setHistories(result.data);
-        setTotalPages(result.totalPages || 1);
-        setCurrentPage(result.page || 1);
-      } else {
-        console.warn("⚠️ No data in response");
-        setHistories([]);
-        setTotalPages(1);
-        setCurrentPage(1);
-      }
+      console.log("🔍 Fetching with query:", query);
+
+      const result = await necSignalApi.getHistories(query);
+
+      console.log("📊 Result received:", {
+        dataCount: result.data.length,
+        page: result.page,
+        totalCount: result.totalCount,
+        totalPages: result.totalPages,
+      });
+
+      // ✅ PERBAIKAN: Set data langsung dari result
+      setHistories(result.data || []);
+      setTotalPages(result.totalPages || 1);
+      setCurrentPage(result.page || page);
     } catch (error: any) {
       console.error("❌ Error fetching histories:", error);
-      // Tampilkan error detail
-      if (error.response) {
-        console.error("Error response:", error.response.data);
-      }
       toast({
         title: "Error",
         description: error.message || "Gagal memuat data history.",
         variant: "destructive",
       });
+
+      // Reset ke state kosong jika error
       setHistories([]);
       setTotalPages(1);
       setCurrentPage(1);
@@ -311,30 +274,27 @@ const NecHistoryPage: React.FC = () => {
       setIsLoading(false);
     }
   };
-  useEffect(() => {
-    console.log("🔍 Current histories state:", histories);
-    console.log("📊 Histories count:", histories.length);
-  }, [histories]);
-  // Fetch towers and links for dropdowns
+
   const fetchTowersAndLinks = async () => {
     try {
       const towersResult = await necSignalApi.getTowers();
       const linksResult = await necSignalApi.getLinks();
-      setTowers(towersResult?.map((t) => ({ id: t.id, name: t.name })) || []); // ✅ FIX: Safe mapping
+      setTowers(towersResult?.map((t) => ({ id: t.id, name: t.name })) || []);
       setLinks(
         linksResult?.map((l) => ({
           id: l.id,
           name: l.linkName,
           nearEndTower: l.nearEndTower,
           farEndTower: l.farEndTower,
-        })) || [] // ✅ FIX: Safe mapping
+        })) || []
       );
     } catch (error) {
       console.error("Error fetching towers/links:", error);
-      setTowers([]); // ✅ FIX: Set empty arrays on error
+      setTowers([]);
       setLinks([]);
     }
   };
+
   const fetchMonthlyData = async () => {
     if (!selectedYear || !selectedMonth) return;
     try {
@@ -342,10 +302,10 @@ const NecHistoryPage: React.FC = () => {
       setMonthlyData(result);
     } catch (error) {
       console.error("Error fetching monthly data:", error);
-      setMonthlyData(null); // ✅ FIX: Reset on error
+      setMonthlyData(null);
     }
   };
-  // Fetch yearly data for chart
+
   const fetchYearlyData = async () => {
     if (!selectedYear) return;
     try {
@@ -353,9 +313,10 @@ const NecHistoryPage: React.FC = () => {
       setYearlyData(result);
     } catch (error) {
       console.error("Error fetching yearly data:", error);
-      setYearlyData(null); // ✅ FIX: Reset on error
+      setYearlyData(null);
     }
   };
+
   useEffect(() => {
     if (activeTab === "monthly") {
       fetchMonthlyData();
@@ -363,7 +324,15 @@ const NecHistoryPage: React.FC = () => {
       fetchYearlyData();
     }
   }, [activeTab, selectedYear, selectedMonth]);
-  // Handle form changes
+
+  useEffect(() => {
+    console.log("📊 State updated:", {
+      historiesCount: histories.length,
+      currentPage,
+      totalPages,
+    });
+  }, [histories, currentPage, totalPages]);
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -376,7 +345,7 @@ const NecHistoryPage: React.FC = () => {
           : value,
     }));
   };
-  // Open modal for create/edit
+
   const openModal = (
     mode: "create" | "edit",
     history?: NecRslHistoryItemDto
@@ -384,12 +353,9 @@ const NecHistoryPage: React.FC = () => {
     setModalMode(mode);
     if (mode === "edit" && history) {
       setCurrentHistory(history);
-
-      // ✅ PERBAIKAN: Lebih robust conversion
       let statusString = "active";
       if (history.status !== null && history.status !== undefined) {
         if (typeof history.status === "number") {
-          // Enum to string mapping
           const statusMap: Record<number, string> = {
             0: "active",
             1: "dismantled",
@@ -404,10 +370,10 @@ const NecHistoryPage: React.FC = () => {
       setFormData({
         necLinkId: history.necLinkId,
         date: format(new Date(history.date), "yyyy-MM-dd"),
-        rslNearEnd: history.rslNearEnd,
+        rslNearEnd: history.rslNearEnd || 0,
         rslFarEnd: history.rslFarEnd || 0,
         notes: history.notes || "",
-        status: statusString, // ✅ This is now guaranteed to be string
+        status: statusString,
       });
     } else {
       setCurrentHistory(null);
@@ -422,28 +388,23 @@ const NecHistoryPage: React.FC = () => {
     }
     setIsModalOpen(true);
   };
-  // Submit form
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
-    // ✅ LOGIKA BARU: Validasi gabungan RSL dan Notes
-    const hasRsl = formData.rslNearEnd !== 0; // atau null check
-    const hasNotes = formData.notes?.trim().length > 0;
-  
-    if (!hasRsl && !hasNotes) {
+    if (formData.status !== "active" && !formData.notes?.trim()) {
       toast({
         title: "Error",
-        description: "Harap isi RSL atau Catatan.",
+        description: "Catatan wajib diisi untuk status non-active",
         variant: "destructive",
       });
       return;
     }
-  
+
     const payload = {
       necLinkId: formData.necLinkId,
       date: formData.date,
-      rslNearEnd: hasRsl ? formData.rslNearEnd : null, // ✅ Boleh null
-      rslFarEnd: hasRsl ? formData.rslFarEnd : null,
+      rslNearEnd: formData.status === "active" ? formData.rslNearEnd : -100,
+      rslFarEnd: formData.status === "active" ? formData.rslFarEnd : null,
       notes: formData.notes,
       status: formData.status,
     };
@@ -476,7 +437,6 @@ const NecHistoryPage: React.FC = () => {
     }
   };
 
-  // Delete history
   const handleDelete = async (id: number) => {
     if (confirm("Apakah Anda yakin ingin menghapus data ini?")) {
       try {
@@ -496,7 +456,7 @@ const NecHistoryPage: React.FC = () => {
       }
     }
   };
-  // Handle import
+
   const handleImport = async () => {
     if (!importFile) {
       toast({
@@ -507,7 +467,6 @@ const NecHistoryPage: React.FC = () => {
       return;
     }
     try {
-      // ✅ Hanya gunakan pivot untuk sementara
       const result = await necSignalApi.importPivotExcel({
         excelFile: importFile,
       });
@@ -532,7 +491,7 @@ const NecHistoryPage: React.FC = () => {
       });
     }
   };
-  // Handle export
+
   const handleExport = async () => {
     try {
       await necSignalApi.exportYearlyExcel(selectedYear);
@@ -549,16 +508,21 @@ const NecHistoryPage: React.FC = () => {
       });
     }
   };
-  // Generate data for charts
-  const generateLineChartData = () => {
+
+  const generateMonthlyBarChartData = () => {
     if (!monthlyData || !monthlyData.data) return [];
-    const chartData: { date: string; value: number }[] = [];
+    const chartData: Array<{
+      linkName: string;
+      avgRsl: number;
+      tower: string;
+    }> = [];
     monthlyData.data.forEach((tower) => {
       if (tower.links && Array.isArray(tower.links)) {
         tower.links.forEach((link) => {
           chartData.push({
-            date: link.linkName,
-            value: link.avgRsl,
+            linkName: link.linkName,
+            avgRsl: link.avgRsl,
+            tower: tower.towerName,
           });
         });
       }
@@ -566,8 +530,6 @@ const NecHistoryPage: React.FC = () => {
     return chartData;
   };
 
-  
-  // ✅ FIXED: Pie Chart untuk Status Distribution
   const generatePieChartData = () => {
     if (!monthlyData || !monthlyData.data) return [];
     const statusCount = {
@@ -594,7 +556,7 @@ const NecHistoryPage: React.FC = () => {
     ].filter((item) => item.value > 0);
     return pieData;
   };
-  // ✅ FIXED: Yearly Chart Data
+
   const generateYearlyChartData = () => {
     if (!yearlyData || !yearlyData.towers) return [];
     const monthlyAverages: Record<string, { sum: number; count: number }> = {};
@@ -609,12 +571,10 @@ const NecHistoryPage: React.FC = () => {
         });
       });
     });
-    // Convert ke array untuk chart
     const chartData = Object.entries(monthlyAverages).map(([month, data]) => ({
       date: month,
-      value: Math.round((data.sum / data.count) * 10) / 10, // Rata-rata dengan 1 desimal
+      value: Math.round((data.sum / data.count) * 10) / 10,
     }));
-    // Sort by month order
     const monthOrder = [
       "Jan",
       "Feb",
@@ -646,10 +606,10 @@ const NecHistoryPage: React.FC = () => {
     return false;
   };
 
-  // Render monthly chart
   const renderMonthlyChart = () => {
     if (!monthlyData)
       return <div className="text-center text-gray-500">Memuat data...</div>;
+
     return (
       <div className="space-y-6">
         <h3 className="text-xl font-semibold">
@@ -658,26 +618,95 @@ const NecHistoryPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Grafik Garis Rata-rata RSL</CardTitle>
+              <CardTitle>Grafik Bar Rata-rata RSL</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={generateLineChartData()}>
+              <ResponsiveContainer width="100%" height={500}>
+                <BarChart
+                  data={generateMonthlyBarChartData()}
+                  margin={{ top: 20, right: 80, left: 20, bottom: 140 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#8884d8"
-                    activeDot={{ r: 8 }}
+                  <XAxis
+                    dataKey="linkName"
+                    angle={-45}
+                    textAnchor="end"
+                    height={140}
+                    interval={0}
+                    tick={{ fontSize: 9 }}
                   />
-                </LineChart>
+                  <YAxis
+                    domain={[-70, -30]}
+                    label={{
+                      value: "RSL (dBm)",
+                      angle: -90,
+                      position: "insideLeft",
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value: any) => [`${value} dBm`, "Average RSL"]}
+                    labelFormatter={(label) => `Link: ${label}`}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: "10px" }} />
+                  <ReferenceLine
+                    y={-45}
+                    stroke="#10b981"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Optimal (-45)",
+                      position: "right",
+                      fill: "#10b981",
+                      fontSize: 10,
+                      offset: 10,
+                    }}
+                  />
+                  <ReferenceLine
+                    y={-55}
+                    stroke="#f59e0b"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Warning (-55)",
+                      position: "right",
+                      fill: "#f59e0b",
+                      fontSize: 10,
+                      offset: 10,
+                    }}
+                  />
+                  <ReferenceLine
+                    y={-60}
+                    stroke="#fb923c"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Sub-opt (-60)",
+                      position: "right",
+                      fill: "#fb923c",
+                      fontSize: 10,
+                      offset: 10,
+                    }}
+                  />
+                  <ReferenceLine
+                    y={-65}
+                    stroke="#dc2626"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Critical (-65)",
+                      position: "right",
+                      fill: "#dc2626",
+                      fontSize: 10,
+                      offset: 10,
+                    }}
+                  />
+                  <Bar
+                    dataKey="avgRsl"
+                    fill="#3b82f6"
+                    name="Average RSL"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Distribusi Status Link</CardTitle>
@@ -710,6 +739,7 @@ const NecHistoryPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+
         <div className="grid grid-cols-1 gap-6">
           <Card>
             <CardHeader>
@@ -737,7 +767,6 @@ const NecHistoryPage: React.FC = () => {
                             <TableCell>{link.linkName}</TableCell>
                             <TableCell>{link.avgRsl.toFixed(1)} dBm</TableCell>
                             <TableCell>
-                              {/* ✅ STATUS OPERASIONAL */}
                               <span
                                 className={
                                   getOperationalStatusDisplay(link.status)
@@ -747,10 +776,7 @@ const NecHistoryPage: React.FC = () => {
                                 {getOperationalStatusDisplay(link.status).label}
                               </span>
                             </TableCell>
-                            <TableCell>
-                              {/* ✅ KETERANGAN = PERINGATAN RSL */}
-                              {link.warningMessage || "-"}
-                            </TableCell>
+                            <TableCell>{link.warningMessage || "-"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -764,7 +790,7 @@ const NecHistoryPage: React.FC = () => {
       </div>
     );
   };
-  // Render yearly chart
+
   const renderYearlyChart = () => {
     if (!yearlyData)
       return <div className="text-center text-gray-500">Memuat data...</div>;
@@ -773,92 +799,121 @@ const NecHistoryPage: React.FC = () => {
         <h3 className="text-xl font-semibold">
           Ringkasan Tahunan - {yearlyData.year}
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Grafik Area Rata-rata Bulanan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={generateYearlyChartData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis domain={[-70, -30]} />
-                  <Tooltip />
-                  <Legend />
-                  {/* ✅ UPDATE INI */}
-                  <ReferenceLine
-                    y={-45}
-                    stroke="#10b981"
-                    strokeDasharray="3 3"
-                    label="Optimal Max (-45)"
-                  />
-                  <ReferenceLine
-                    y={-55}
-                    stroke="#f59e0b"
-                    strokeDasharray="3 3"
-                    label="Warning (-55)"
-                  />
-                  <ReferenceLine
-                    y={-60}
-                    stroke="#fb923c"
-                    strokeDasharray="3 3"
-                    label="Sub-optimal (-60)"
-                  />
-                  <ReferenceLine
-                    y={-65}
-                    stroke="#dc2626"
-                    strokeDasharray="3 3"
-                    label="Critical (-65)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#8884d8"
-                    fill="#8884d8"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistik Tahunan</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {yearlyData.towers.map((tower, idx) => (
-                  <div key={idx} className="border p-4 rounded-lg">
-                    <h4 className="font-semibold mb-2">{tower.towerName}</h4>
-                    {Object.entries(tower.links).map(([linkName, linkData]) => (
-                      <div key={linkName} className="mb-4">
-                        <h5 className="font-medium">{linkName}</h5>
-                        <p className="text-sm text-gray-600">
-                          Rata-rata Tahunan: {linkData.yearlyAvg.toFixed(1)} dBm
-                        </p>
-                        {linkData.warnings.length > 0 && (
-                          <div className="mt-2">
-                            <h6 className="text-sm font-semibold text-red-600">
-                              Peringatan:
-                            </h6>
-                            <ul className="list-disc list-inside text-sm text-red-600">
-                              {linkData.warnings.map((warning, wIdx) => (
-                                <li key={wIdx}>{warning}</li>
-                              ))}
-                            </ul>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Grafik Area Rata-rata Bulanan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={350}>
+              <AreaChart data={generateYearlyChartData()}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis domain={[-70, -30]} />
+                <Tooltip />
+                <Legend />
+                <ReferenceLine
+                  y={-45}
+                  stroke="#10b981"
+                  strokeDasharray="3 3"
+                  label="Optimal Max (-45)"
+                />
+                <ReferenceLine
+                  y={-55}
+                  stroke="#f59e0b"
+                  strokeDasharray="3 3"
+                  label="Warning (-55)"
+                />
+                <ReferenceLine
+                  y={-60}
+                  stroke="#fb923c"
+                  strokeDasharray="3 3"
+                  label="Sub-optimal (-60)"
+                />
+                <ReferenceLine
+                  y={-65}
+                  stroke="#dc2626"
+                  strokeDasharray="3 3"
+                  label="Critical (-65)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#8884d8"
+                  fill="#8884d8"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Statistik Detail Per Link</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {yearlyData.towers.map((tower, towerIdx) =>
+                  Object.entries(tower.links).map(
+                    ([linkName, linkData], linkIdx) => (
+                      <div
+                        key={`${towerIdx}-${linkIdx}`}
+                        className="border rounded-lg p-4 bg-gray-50"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-sm">
+                              {linkName}
+                            </h5>
+                            <p className="text-xs text-gray-500">
+                              {tower.towerName}
+                            </p>
                           </div>
-                        )}
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">
+                              Rata-rata Tahunan:
+                            </span>
+                            <span className="font-bold text-sm">
+                              {linkData.yearlyAvg.toFixed(1)} dBm
+                            </span>
+                          </div>
+
+                          {linkData.warnings.length > 0 && (
+                            <div className="mt-2 pt-2 border-t">
+                              <div className="flex items-start gap-1">
+                                <AlertTriangle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-xs font-semibold text-red-600 mb-1">
+                                    Peringatan:
+                                  </p>
+                                  <ul className="text-xs text-red-600 space-y-1">
+                                    {linkData.warnings.map((warning, wIdx) => (
+                                      <li key={wIdx} className="leading-tight">
+                                        • {warning}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ))}
+                    )
+                  )
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
     );
   };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -878,17 +933,78 @@ const NecHistoryPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList>
-          <TabsTrigger value="history">Daftar History</TabsTrigger>
-          <TabsTrigger value="pivot">Pivot Table</TabsTrigger>
-          <TabsTrigger value="monthly">Grafik Bulanan</TabsTrigger>
-          <TabsTrigger value="yearly">Grafik Tahunan</TabsTrigger>
-        </TabsList>
+        {/* Navigation Tabs - Advanced version */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === "history"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span>📋</span>
+                <span>Daftar History</span>
+                {totalPages > 0 && (
+                  <span className="bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full text-xs font-semibold">
+                    {(totalPages * 15).toLocaleString()}
+                  </span>
+                )}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("pivot")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === "pivot"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span>📊</span>
+                <span>Pivot Table</span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("monthly")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === "monthly"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span>📈</span>
+                <span>Grafik Bulanan</span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("yearly")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === "yearly"
+                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span>📉</span>
+                <span>Grafik Tahunan</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
         <TabsContent value="history">
           <Card>
             <CardHeader>
@@ -908,6 +1024,7 @@ const NecHistoryPage: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => {
                       if (e.key === "Enter") {
+                        setCurrentPage(1);
                         fetchHistories(
                           1,
                           searchTerm,
@@ -918,13 +1035,14 @@ const NecHistoryPage: React.FC = () => {
                   />
                 </div>
                 <Select
-                  value={selectedLink?.toString() || "all"} // ✅ Changed from ""
+                  value={selectedLink?.toString() || "all"}
                   onValueChange={(value) => {
-                    setSelectedLink(value === "all" ? null : parseInt(value)); // ✅ Changed
+                    setSelectedLink(value === "all" ? null : parseInt(value));
+                    setCurrentPage(1);
                     fetchHistories(
                       1,
                       searchTerm,
-                      value === "all" ? undefined : parseInt(value) // ✅ Changed
+                      value === "all" ? undefined : parseInt(value)
                     );
                   }}
                 >
@@ -932,8 +1050,7 @@ const NecHistoryPage: React.FC = () => {
                     <SelectValue placeholder="Filter by Link" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Semua Link</SelectItem>{" "}
-                    {/* ✅ Changed from "" */}
+                    <SelectItem value="all">Semua Link</SelectItem>
                     {links.map((link) => (
                       <SelectItem key={link.id} value={link.id.toString()}>
                         {link.name}
@@ -942,91 +1059,199 @@ const NecHistoryPage: React.FC = () => {
                   </SelectContent>
                 </Select>
                 <Button
-                  onClick={() =>
-                    fetchHistories(1, searchTerm, selectedLink ?? undefined)
-                  }
+                  onClick={() => {
+                    setCurrentPage(1);
+                    fetchHistories(1, searchTerm, selectedLink ?? undefined);
+                  }}
                 >
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
+
               {isLoading ? (
                 <div className="flex justify-center items-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                   <span className="ml-3">Memuat data...</span>
                 </div>
               ) : (
-                <>
+                <div className="space-y-4">
                   {histories.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>No</TableHead>
-                          <TableHead>Tanggal</TableHead>
-                          <TableHead>Link</TableHead>
-                          {/* <TableHead>Tower Near End</TableHead> */}
-                          {/* <TableHead>Tower Far End</TableHead> */}
-                          <TableHead>RSL</TableHead>{" "}
-                          {/* ✅ Diubah jadi RSL saja */}
-                          <TableHead>Aksi</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {histories.map((history) => (
-                          <TableRow key={history.id}>
-                            <TableCell>{history.no || history.id}</TableCell>
-                            <TableCell>
-                              {format(new Date(history.date), "dd/MM/yyyy")}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {history.linkName}
-                            </TableCell>
-                            {/* <TableCell>{history.nearEndTower}</TableCell> */}
-                            {/* <TableCell>{history.farEndTower}</TableCell> */}
-                            <TableCell>
-                              <div className="flex flex-col">
-                                {isStatusActive(history.status) ? (
-                                  <>
-                                    <span className={`font-mono font-semibold ${getRslTextColor(history.rslNearEnd)}`}>
-                                      {history.rslNearEnd?.toFixed(1) ?? "N/A"} dBm
-                                    </span>
-                                    <span className="text-xs text-gray-500 mt-1">
-                                      {getRslStatusLabel(history.rslNearEnd)}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <div className="space-y-1">
-                                    <span className={getOperationalStatusDisplay(history.status).className}>
-                                      {getOperationalStatusDisplay(history.status).label}
-                                    </span>
-                                    {history.notes && (
-                                      <p className="text-xs text-gray-600 italic">{history.notes}</p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openModal("edit", history)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDelete(history.id)}
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>No</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Link</TableHead>
+                            <TableHead>RSL</TableHead>
+                            <TableHead>Aksi</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {histories.map((history) => (
+                            <TableRow key={history.id}>
+                              <TableCell>{history.no || history.id}</TableCell>
+                              <TableCell>
+                                {format(new Date(history.date), "dd/MM/yyyy")}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {history.linkName}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  {isStatusActive(history.status) ? (
+                                    <>
+                                      <span
+                                        className={`font-mono font-semibold ${getRslTextColor(
+                                          history.rslNearEnd
+                                        )}`}
+                                      >
+                                        {history.rslNearEnd?.toFixed(1) ??
+                                          "N/A"}{" "}
+                                        dBm
+                                      </span>
+                                      <span className="text-xs text-gray-500 mt-1">
+                                        {getRslStatusLabel(history.rslNearEnd)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <span
+                                        className={
+                                          getOperationalStatusDisplay(
+                                            history.status
+                                          ).className
+                                        }
+                                      >
+                                        {
+                                          getOperationalStatusDisplay(
+                                            history.status
+                                          ).label
+                                        }
+                                      </span>
+                                      {history.notes && (
+                                        <p className="text-xs text-gray-600 italic">
+                                          {history.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openModal("edit", history)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(history.id)}
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      {histories.length > 0 && (
+                        <div className="flex justify-between items-center pt-4 border-t">
+                          <div className="flex gap-2">
+                            {/* Button Awal */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={currentPage <= 1 || isLoading}
+                              onClick={() =>
+                                fetchHistories(
+                                  1,
+                                  searchTerm,
+                                  selectedLink ?? undefined
+                                )
+                              }
+                            >
+                              <ChevronsLeft className="h-4 w-4 mr-1" />
+                              Awal
+                            </Button>
+
+                            {/* Button Sebelumnya */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={currentPage <= 1 || isLoading}
+                              onClick={() => {
+                                const newPage = Math.max(1, currentPage - 1);
+                                fetchHistories(
+                                  newPage,
+                                  searchTerm,
+                                  selectedLink ?? undefined
+                                );
+                              }}
+                            >
+                              <ChevronLeft className="h-4 w-4 mr-1" />
+                              Sebelumnya
+                            </Button>
+                          </div>
+
+                          {/* Info Halaman */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">
+                              Halaman {currentPage} dari {totalPages}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              (Menampilkan {histories.length} data)
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {/* Button Berikutnya */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={currentPage >= totalPages || isLoading}
+                              onClick={() => {
+                                const newPage = Math.min(
+                                  totalPages,
+                                  currentPage + 1
+                                );
+                                fetchHistories(
+                                  newPage,
+                                  searchTerm,
+                                  selectedLink ?? undefined
+                                );
+                              }}
+                            >
+                              Berikutnya
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+
+                            {/* Button Akhir */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={currentPage >= totalPages || isLoading}
+                              onClick={() =>
+                                fetchHistories(
+                                  totalPages,
+                                  searchTerm,
+                                  selectedLink ?? undefined
+                                )
+                              }
+                            >
+                              Akhir
+                              <ChevronsRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <Alert className="mt-4">
                       <AlertDescription className="flex flex-col items-center justify-center py-8">
@@ -1044,46 +1269,16 @@ const NecHistoryPage: React.FC = () => {
                       </AlertDescription>
                     </Alert>
                   )}
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex justify-between items-center mt-4">
-                      <Button
-                        disabled={currentPage <= 1}
-                        onClick={() =>
-                          fetchHistories(
-                            currentPage - 1,
-                            searchTerm,
-                            selectedLink ?? undefined
-                          )
-                        }
-                      >
-                        Sebelumnya
-                      </Button>
-                      <span>
-                        Halaman {currentPage} dari {totalPages}
-                      </span>
-                      <Button
-                        disabled={currentPage >= totalPages}
-                        onClick={() =>
-                          fetchHistories(
-                            currentPage + 1,
-                            searchTerm,
-                            selectedLink ?? undefined
-                          )
-                        }
-                      >
-                        Berikutnya
-                      </Button>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="pivot">
           <NecRslPivotTable />
         </TabsContent>
+
         <TabsContent value="monthly">
           <Card>
             <CardHeader>
@@ -1133,6 +1328,7 @@ const NecHistoryPage: React.FC = () => {
             <CardContent>{renderMonthlyChart()}</CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="yearly">
           <Card>
             <CardHeader>
@@ -1162,7 +1358,7 @@ const NecHistoryPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-      {/* Modal for Create/Edit History */}
+
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1228,11 +1424,10 @@ const NecHistoryPage: React.FC = () => {
                   value={formData.rslNearEnd}
                   onChange={handleInputChange}
                   required={formData.status === "active"}
-                  disabled={formData.status !== "active"} // ✅ DISABLED
+                  disabled={formData.status !== "active"}
                   className={formData.status !== "active" ? "bg-gray-100" : ""}
                 />
               </div>
-              {/* ✅ NOTES FIELD */}
               <div>
                 <Label htmlFor="notes">
                   Catatan{" "}
@@ -1246,7 +1441,7 @@ const NecHistoryPage: React.FC = () => {
                   value={formData.notes}
                   onChange={handleInputChange}
                   placeholder="Contoh: Link dismantled, pindah ke tower lain"
-                  required={formData.status !== "active"} // ✅ WAJIB untuk non-active
+                  required={formData.status !== "active"}
                 />
                 {formData.status !== "active" && (
                   <p className="text-xs text-gray-500 mt-1">
@@ -1254,7 +1449,6 @@ const NecHistoryPage: React.FC = () => {
                   </p>
                 )}
               </div>
-              {/* ✅ STATUS FIELD */}
               <div>
                 <Label htmlFor="status">Status Operasional</Label>
                 <Select
@@ -1290,7 +1484,7 @@ const NecHistoryPage: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
-      {/* Modal for Import */}
+
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1300,74 +1494,30 @@ const NecHistoryPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Format Selection */}
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <Label className="text-sm font-semibold mb-3 block">
-                Format File Excel:
-              </Label>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => setImportFormat("pivot")}
-                  className="h-auto py-3 flex-col items-start"
-                >
-                  <div className="font-semibold">Pivot/Monthly Format</div>
-                  <div className="text-xs text-left mt-1 opacity-80">
-                    No | Link | Jan-25 | Feb-25 | ...
-                  </div>
-                </Button>
-              </div>
-            </div>
-            {/* Format Info */}
             <Alert>
               <AlertDescription className="space-y-2">
-                {importFormat === "pivot" ? (
-                  <>
-                    <p className="font-semibold">
-                      Format Pivot (yang Anda gunakan):
-                    </p>
-                    <ul className="list-disc list-inside text-sm space-y-1">
-                      <li>
-                        <strong>Kolom A:</strong> No (opsional)
-                      </li>
-                      <li>
-                        <strong>Kolom B:</strong> Link Name (contoh: M5 to
-                        Hasari)
-                      </li>
-                      <li>
-                        <strong>Kolom C+:</strong> Jan-25, Feb-25, Mar-25, dst
-                      </li>
-                      <li>
-                        <strong>Data:</strong> RSL values dalam setiap cell
-                      </li>
-                    </ul>
-                    <p className="text-xs text-gray-600 mt-2">
-                      ✅ Tanggal akan di-set ke tanggal 15 setiap bulan
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-semibold">Format Row Per Date:</p>
-                    <ul className="list-disc list-inside text-sm space-y-1">
-                      <li>
-                        <strong>Kolom A:</strong> Date (2025-01-15)
-                      </li>
-                      <li>
-                        <strong>Kolom B:</strong> Link Name
-                      </li>
-                      <li>
-                        <strong>Kolom C:</strong> RSL Near End
-                      </li>
-                      <li>
-                        <strong>Kolom D:</strong> RSL Far End (optional)
-                      </li>
-                    </ul>
-                  </>
-                )}
+                <p className="font-semibold">
+                  Format Pivot (yang Anda gunakan):
+                </p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>
+                    <strong>Kolom A:</strong> No (opsional)
+                  </li>
+                  <li>
+                    <strong>Kolom B:</strong> Link Name (contoh: M5 to Hasari)
+                  </li>
+                  <li>
+                    <strong>Kolom C+:</strong> Jan-25, Feb-25, Mar-25, dst
+                  </li>
+                  <li>
+                    <strong>Data:</strong> RSL values dalam setiap cell
+                  </li>
+                </ul>
+                <p className="text-xs text-gray-600 mt-2">
+                  ✅ Tanggal akan di-set ke tanggal 15 setiap bulan
+                </p>
               </AlertDescription>
             </Alert>
-            {/* File Input */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Input
                 type="file"
@@ -1382,7 +1532,6 @@ const NecHistoryPage: React.FC = () => {
                 </p>
               )}
             </div>
-            {/* Import Result */}
             {importResult && (
               <Alert
                 className={
@@ -1439,7 +1588,7 @@ const NecHistoryPage: React.FC = () => {
             </Button>
             <Button onClick={handleImport} disabled={!importFile}>
               <Upload className="mr-2 h-4 w-4" />
-              Impor ({importFormat === "pivot" ? "Pivot" : "Row"})
+              Impor Pivot
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1447,4 +1596,5 @@ const NecHistoryPage: React.FC = () => {
     </div>
   );
 };
+
 export default NecHistoryPage;
