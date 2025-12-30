@@ -1,7 +1,7 @@
 // components/settings/RolesTab.tsx
-import React, { useState, useEffect } from 'react';
-import { roleApi } from '../../services/api';
-import { Role } from '../../types/permission';
+import React, { useState, useEffect } from "react";
+import { permissionApi, roleApi } from "../../services/api";
+import { Permission, Role } from "../../types/permission";
 import {
   Plus,
   Edit2,
@@ -10,22 +10,25 @@ import {
   X,
   Search,
   Shield,
-} from 'lucide-react';
+  Users,
+  Key,
+} from "lucide-react";
+import { permission } from "process";
 
 export default function RolesTab() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{
-    type: 'success' | 'error';
+    type: "success" | "error";
     text: string;
   } | null>(null);
 
   const [formData, setFormData] = useState({
-    roleName: '',
-    description: '',
+    roleName: "",
+    description: "",
   });
 
   useEffect(() => {
@@ -34,11 +37,34 @@ export default function RolesTab() {
 
   const fetchRoles = async () => {
     try {
-      const data = await roleApi.getAll();
-      setRoles(data);
+      const basicRoles = await roleApi.getAll();
+
+      // Fetch detailed info for each role to get userCount and permissionCount
+      const detailedRoles = await Promise.all(
+        basicRoles.map(async (role) => {
+          try {
+            const [roleDetail] = await Promise.all([
+              roleApi.getById(role.roleId),
+            ]);
+            return {
+              ...role,
+              userCount: roleDetail.userCount,
+              permissionCount: roleDetail.permissionCount,
+            };
+          } catch (err) {
+            console.error(
+              `Error fetching details for role ${role.roleId}:`,
+              err
+            );
+            return role;
+          }
+        })
+      );
+
+      setRoles(detailedRoles);
     } catch (error) {
-      console.error('Error fetching roles:', error);
-      setMessage({ type: 'error', text: 'Gagal memuat data roles' });
+      console.error("Error fetching roles:", error);
+      setMessage({ type: "error", text: "Gagal memuat data roles" });
     } finally {
       setLoading(false);
     }
@@ -48,20 +74,20 @@ export default function RolesTab() {
     e.preventDefault();
 
     if (!formData.roleName.trim()) {
-      setMessage({ type: 'error', text: 'Nama role tidak boleh kosong' });
+      setMessage({ type: "error", text: "Nama role tidak boleh kosong" });
       return;
     }
 
     try {
       if (editingId) {
         await roleApi.update(editingId, formData);
-        setMessage({ type: 'success', text: 'Role berhasil diupdate' });
+        setMessage({ type: "success", text: "Role berhasil diupdate" });
       } else {
         await roleApi.create(formData);
-        setMessage({ type: 'success', text: 'Role berhasil ditambahkan' });
+        setMessage({ type: "success", text: "Role berhasil ditambahkan" });
       }
 
-      setFormData({ roleName: '', description: '' });
+      setFormData({ roleName: "", description: "" });
       setIsAddingNew(false);
       setEditingId(null);
       fetchRoles();
@@ -69,8 +95,8 @@ export default function RolesTab() {
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal menyimpan role',
+        type: "error",
+        text: error.response?.data?.message || "Gagal menyimpan role",
       });
     }
   };
@@ -79,25 +105,25 @@ export default function RolesTab() {
     setEditingId(role.roleId);
     setFormData({
       roleName: role.roleName,
-      description: role.description || '',
+      description: role.description || "",
     });
     setIsAddingNew(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus role ini?')) {
+    if (!confirm("Apakah Anda yakin ingin menghapus role ini?")) {
       return;
     }
 
     try {
       await roleApi.delete(id);
-      setMessage({ type: 'success', text: 'Role berhasil dihapus' });
+      setMessage({ type: "success", text: "Role berhasil dihapus" });
       fetchRoles();
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || 'Gagal menghapus role',
+        type: "error",
+        text: error.response?.data?.message || "Gagal menghapus role",
       });
     }
   };
@@ -105,13 +131,14 @@ export default function RolesTab() {
   const handleCancel = () => {
     setIsAddingNew(false);
     setEditingId(null);
-    setFormData({ roleName: '', description: '' });
+    setFormData({ roleName: "", description: "" });
   };
 
   const filteredRoles = roles.filter(
     (r) =>
       r.roleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      (r.description &&
+        r.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
@@ -128,7 +155,9 @@ export default function RolesTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Manage Roles</h2>
-          <p className="text-sm text-gray-600 mt-1">Total: {roles.length} roles</p>
+          <p className="text-sm text-gray-600 mt-1">
+            Total: {roles.length} roles
+          </p>
         </div>
 
         {!isAddingNew && (
@@ -146,9 +175,9 @@ export default function RolesTab() {
       {message && (
         <div
           className={`mb-6 p-4 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.text}
@@ -159,7 +188,7 @@ export default function RolesTab() {
       {isAddingNew && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {editingId ? 'Edit Role' : 'Add New Role'}
+            {editingId ? "Edit Role" : "Add New Role"}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -201,7 +230,7 @@ export default function RolesTab() {
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition inline-flex items-center"
               >
                 <Save className="w-5 h-5 mr-2" />
-                {editingId ? 'Update' : 'Save'}
+                {editingId ? "Update" : "Save"}
               </button>
               <button
                 type="button"
@@ -234,7 +263,7 @@ export default function RolesTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredRoles.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
-            {searchTerm ? 'No roles found' : 'No roles yet'}
+            {searchTerm ? "No roles found" : "No roles yet"}
           </div>
         ) : (
           filteredRoles.map((role) => (
@@ -248,21 +277,48 @@ export default function RolesTab() {
                     <Shield className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{role.roleName}</h3>
-                    <p className="text-xs text-gray-500">ID: {role.roleId}</p>
+                    <h3 className="font-semibold text-gray-900">
+                      {role.roleName}
+                    </h3>
+                    {/* <p className="text-xs text-gray-500">ID: {role.roleId}</p> */}
                   </div>
                 </div>
               </div>
 
               <p className="text-sm text-gray-600 mb-4 min-h-[40px]">
-                {role.description || 'No description'}
+                {role.description || "No description"}
               </p>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-gray-50 p-2 rounded-lg flex items-center space-x-2">
+                  <Users className="w-4 h-4 text-gray-400" />
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase font-semibold">
+                      Users
+                    </p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {role.userCount || 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-2 rounded-lg flex items-center space-x-2">
+                  <Key className="w-4 h-4 text-gray-400" />
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase font-semibold">
+                      Permissions
+                    </p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {role.permissionCount || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                 <span className="text-xs text-gray-500">
                   {role.createdAt
-                    ? new Date(role.createdAt).toLocaleDateString('id-ID')
-                    : '-'}
+                    ? new Date(role.createdAt).toLocaleDateString("id-ID")
+                    : "-"}
                 </span>
                 <div className="flex space-x-2">
                   <button

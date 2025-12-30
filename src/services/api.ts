@@ -1,5 +1,3 @@
-// services/api.ts - CLEAN VERSION FOR CAMELCASE BACKEND
-
 import axios from "axios";
 import { LoginRequest, User } from "../types/auth";
 import {
@@ -18,6 +16,7 @@ import {
   RolePermission,
   RolePermissionMatrix,
 } from "../types/permission";
+import { number } from "framer-motion";
 
 // Determine base URL based on environment
 const getBaseURL = () => {
@@ -679,6 +678,11 @@ export const roleApi = {
 
   getById: async (id: number): Promise<Role> => {
     const response = await api.get(`/api/roles/${id}`);
+    return response.data.data;
+  },
+
+  getRolePermissions: async (id: number): Promise<Permission> => {
+    const response = await api.get(`/api/roles/${id}/permissions`);
     return response.data.data;
   },
 
