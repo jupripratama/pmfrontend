@@ -115,8 +115,18 @@ apiLongRunning.interceptors.request.use(requestInterceptor, (error) =>
   Promise.reject(error)
 );
 
-api.interceptors.response.use(responseInterceptor, errorInterceptor);
-apiLongRunning.interceptors.response.use(responseInterceptor, errorInterceptor);
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.code === "ERR_NETWORK" && error.config && !error.config._retry) {
+      error.config._retry = true;
+      console.log("🔄 Retrying request...");
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2s
+      return api.request(error.config); // Retry once
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Test connection function
 export const testConnection = async (): Promise<{
@@ -268,7 +278,7 @@ export const authApi = {
       email: userData.email,
       fullName: userData.fullName,
     });
-  
+
     const requestData = {
       username: userData.username,
       email: userData.email,
@@ -276,20 +286,20 @@ export const authApi = {
       confirmPassword: userData.password,
       fullName: userData.fullName,
     };
-  
+
     try {
       const response = await api.post("/api/auth/register", requestData);
       console.log("✅ Register response:", response.data);
       return response.data;
     } catch (error: any) {
       console.error("❌ Register error:", error.response?.data);
-      
+
       const responseData = error.response?.data;
-      
+
       if (!responseData) {
         throw new Error("Tidak dapat terhubung ke server");
       }
-  
+
       // Extract error message from standardized format
       if (responseData.data?.errors) {
         const errors = responseData.data.errors;
@@ -297,11 +307,11 @@ export const authApi = {
         const firstError = errors[firstKey];
         throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
       }
-      
+
       if (responseData.message && responseData.message !== "Bad Request") {
         throw new Error(responseData.message);
       }
-      
+
       throw new Error("Registrasi gagal. Silakan coba lagi.");
     }
   },
