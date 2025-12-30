@@ -13,6 +13,7 @@ export interface Role {
   description?: string;
   isActive: boolean;
   userCount?: number;
+  permissionCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

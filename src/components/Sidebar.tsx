@@ -147,62 +147,42 @@ export default function Sidebar({
           onClick?.();
         }}
         title={isCollapsed ? item.name : ""}
-        className={`flex items-center rounded-xl text-sm font-medium transition-all group relative ${
-          isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3"
+        className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative ${
+          isCollapsed ? "justify-center p-3 mx-2" : "space-x-3 px-4 py-3 mx-2"
         } ${
           isActive
-            ? "bg-white/20 text-white shadow-lg backdrop-blur-md"
+            ? "bg-white text-indigo-900 shadow-[0_8px_16px_rgba(0,0,0,0.2)]"
             : "text-white/70 hover:bg-white/10 hover:text-white"
         }`}
       >
         <Icon
-          className={`${isCollapsed ? "w-6 h-6" : "w-5 h-5"} flex-shrink-0`}
+          className={`${
+            isCollapsed ? "w-6 h-6" : "w-5 h-5"
+          } flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
         />
         {!isCollapsed && <span className="truncate">{item.name}</span>}
-        {isActive && (
-          <motion.div
-            layoutId="active-pill"
-            className="absolute left-0 w-1 h-6 bg-white rounded-r-full"
-          />
-        )}
       </Link>
     );
   };
 
   const SidebarContent = (isMobile: boolean = false) => (
-    <div
-      className={`flex flex-col h-full py-6 ${
-        isCollapsed && !isMobile ? "px-2" : "px-4"
-      }`}
-    >
+    <div className={`flex flex-col h-full py-6`}>
       {/* Logo Section */}
       <div
-        className={`flex items-center mb-10 relative ${
-          isCollapsed && !isMobile ? "justify-center" : "justify-between px-2"
+        className={`flex items-center mb-10 px-6 ${
+          isCollapsed && !isMobile ? "justify-center" : "justify-start"
         }`}
       >
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-white/20 backdrop-blur-lg rounded-xl flex items-center justify-center border border-white/30 shadow-lg flex-shrink-0">
+        <div className="flex items-center space-x-3 overflow-visible">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
             <LayoutDashboard className="w-6 h-6 text-white" />
           </div>
           {(!isCollapsed || isMobile) && (
-            <span className="text-xl font-bold text-white tracking-wide truncate">
+            <span className="text-xl font-bold text-white tracking-tight truncate">
               PM Dashboard
             </span>
           )}
         </div>
-        {!isMobile && (
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`absolute -right-7 top-1/2 -translate-y-1/2 z-50 w-6 h-6 bg-white rounded-full flex items-center justify-center text-indigo-900 shadow-xl border border-indigo-100 hover:scale-110 transition-transform cursor-pointer`}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronLeft className="w-3.5 h-3.5" />
-            )}
-          </button>
-        )}
       </div>
 
       {/* Main Nav */}
