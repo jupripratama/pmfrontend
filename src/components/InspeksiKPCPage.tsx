@@ -176,15 +176,20 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
           <p className="text-xs font-medium text-gray-600 mb-2">
             Foto yang sudah ada:
           </p>
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {existingPhotos.map((url, index) => (
-              <div key={`existing-${index}`} className="relative group">
+              <div
+                key={`existing-${index}`}
+                className="relative group bg-gray-100 rounded-lg overflow-hidden"
+                style={{ paddingBottom: "75%" }} // 4:3 aspect ratio
+              >
                 <img
                   src={url}
                   alt={`Existing ${index + 1}`}
-                  className="w-full h-20 object-cover rounded-lg border-2 border-gray-300 cursor-pointer hover:opacity-75"
+                  className="absolute inset-0 w-full h-full object-contain cursor-pointer hover:opacity-75 p-2 transition-opacity"
                   onClick={() => {
-                    /* Akan dihandle di parent */
+                    // Will be handled by parent to open full gallery
+                    console.log("Open gallery at index:", index);
                   }}
                 />
                 {onRemoveExisting && (
@@ -194,14 +199,14 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
                       e.stopPropagation();
                       onRemoveExisting(index);
                     }}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
                     title="Hapus foto"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 )}
-                <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
-                  Existing
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                  Existing {index + 1}
                 </div>
               </div>
             ))}
@@ -214,15 +219,21 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
           <p className="text-xs font-medium text-gray-600 mb-2">
             Foto baru yang akan diupload:
           </p>
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {previews.map((preview, index) => (
-              <div key={`preview-${index}`} className="relative group">
+              <div
+                key={`preview-${index}`}
+                className="relative group bg-gray-100 rounded-lg overflow-hidden"
+                style={{ paddingBottom: "75%" }} // 4:3 aspect ratio
+              >
                 <img
                   src={preview}
                   alt={`Preview ${index + 1}`}
-                  className={`w-full h-20 object-cover rounded-lg border-2 border-${
-                    iconColor === "green" ? "green" : "blue"
-                  }-300`}
+                  className={`absolute inset-0 w-full h-full object-contain p-2 border-2 rounded-lg ${
+                    iconColor === "green"
+                      ? "border-green-300"
+                      : "border-blue-300"
+                  }`}
                 />
                 <button
                   type="button"
@@ -230,14 +241,15 @@ const ImageUploadZone: React.FC<ImageUploadZoneProps> = ({
                     e.stopPropagation();
                     onRemovePreview(index);
                   }}
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600"
+                  title="Hapus preview"
                 >
                   <X className="w-3 h-3" />
                 </button>
                 <div
-                  className={`absolute bottom-1 left-1 bg-${
-                    iconColor === "green" ? "green" : "blue"
-                  }-600 text-white text-xs px-2 py-0.5 rounded`}
+                  className={`absolute bottom-2 left-2 ${
+                    iconColor === "green" ? "bg-green-600" : "bg-blue-600"
+                  } text-white text-xs px-2 py-1 rounded shadow-md`}
                 >
                   New {index + 1}
                 </div>
@@ -305,6 +317,10 @@ export default function InspeksiKPCPage() {
     "create"
   );
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedTemuan, setExpandedTemuan] = useState<number | null>(null);
+  useEffect(() => {
+    console.log("🔍 expandedTemuan changed:", expandedTemuan);
+  }, [expandedTemuan]);
 
   // State untuk image gallery
   const [viewingImages, setViewingImages] = useState<string[]>([]);
@@ -424,6 +440,25 @@ export default function InspeksiKPCPage() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [isModalOpen, isSubmitting, exportLoading, deletingPhoto]);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!showImageGallery) return;
+      switch (e.key) {
+        case "Escape":
+          closeImageGallery();
+          break;
+        case "ArrowLeft":
+          prevImage();
+          break;
+        case "ArrowRight":
+          nextImage();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [showImageGallery, currentImageIndex]);
 
   useEffect(() => {
     if (error) {
@@ -1372,7 +1407,28 @@ export default function InspeksiKPCPage() {
                       {item.inspector || "-"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
-                      <div className="line-clamp-2">{item.temuan}</div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="line-clamp-2 flex-1 cursor-help"
+                          title={item.temuan}
+                        >
+                          {item.temuan}
+                        </div>
+                        {/* ✅ SELALU TAMPILKAN EYE BUTTON - NO CONDITIONS */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("🔍 Opening modal for ID:", item.id);
+                            setExpandedTemuan(item.id || null);
+                          }}
+                          type="button"
+                          className="text-blue-600 hover:text-blue-800 flex-shrink-0 hover:scale-110 transition-transform p-1.5 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-200"
+                          title="Lihat detail lengkap"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -1394,15 +1450,29 @@ export default function InspeksiKPCPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.fotoTemuanUrls && item.fotoTemuanUrls.length > 0 ? (
-                        <button
-                          onClick={() =>
-                            openImageGallery(item.fotoTemuanUrls || [])
-                          }
-                          className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                          <Eye className="w-4 h-4" />
-                          {item.fotoTemuan}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                            <img
+                              src={item.fotoTemuanUrls[0]}
+                              alt="Foto Temuan"
+                              className="w-full h-full object-cover rounded border border-blue-300 cursor-pointer hover:opacity-75 transition-opacity"
+                              onClick={() =>
+                                openImageGallery(item.fotoTemuanUrls || [])
+                              }
+                            />
+                            {item.fotoTemuanUrls.length > 1 && (
+                              <div className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                                {item.fotoTemuanUrls.length}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() =>
+                              openImageGallery(item.fotoTemuanUrls || [])
+                            }
+                            className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs"
+                          ></button>
+                        </div>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
@@ -1417,15 +1487,35 @@ export default function InspeksiKPCPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {item.fotoHasilUrls && item.fotoHasilUrls.length > 0 ? (
-                        <button
-                          onClick={() =>
-                            openImageGallery(item.fotoHasilUrls || [])
-                          }
-                          className="text-green-600 hover:text-green-800 flex items-center gap-1"
-                        >
-                          <Eye className="w-4 h-4" />
-                          {item.fotoHasil}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* Thumbnail Preview */}
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                            <img
+                              src={item.fotoHasilUrls[0]}
+                              alt="Foto Hasil"
+                              className="w-full h-full object-cover rounded border border-green-300 cursor-pointer hover:opacity-75 transition-opacity"
+                              onClick={() =>
+                                openImageGallery(item.fotoHasilUrls || [])
+                              }
+                            />
+                            {item.fotoHasilUrls.length > 1 && (
+                              <div className="absolute -top-1 -right-1 bg-green-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                                {item.fotoHasilUrls.length}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* View Button */}
+                          <button
+                            onClick={() =>
+                              openImageGallery(item.fotoHasilUrls || [])
+                            }
+                            className="text-green-600 hover:text-green-800 flex items-center gap-1 text-xs"
+                          >
+                            {/* <Eye className="w-3 h-3" />
+                            {item.fotoHasil} */}
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
@@ -1540,6 +1630,151 @@ export default function InspeksiKPCPage() {
             </tbody>
           </table>
         </div>
+
+        <AnimatePresence>
+          {expandedTemuan && (
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={(e) => {
+                console.log("🔴 Backdrop clicked");
+                setExpandedTemuan(null);
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: "spring", duration: 0.3 }}
+                className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log("⚪ Modal content clicked - NOT closing");
+                }}
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-xl font-bold">Detail Temuan</h3>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log("❌ Close button clicked");
+                      setExpandedTemuan(null);
+                    }}
+                    className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
+                    type="button"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                      📝 Deskripsi Temuan
+                    </h4>
+                    <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {data.find((d) => d.id === expandedTemuan)?.temuan ||
+                        "Data tidak ditemukan"}
+                    </p>
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-600 block mb-1">
+                        📍 Ruang
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {data.find((d) => d.id === expandedTemuan)?.ruang ||
+                          "-"}
+                      </span>
+                    </div>
+
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-600 block mb-1">
+                        ⚠️ Severity
+                      </span>
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          data.find((d) => d.id === expandedTemuan)
+                            ?.severity === "Critical"
+                            ? "bg-red-100 text-red-800"
+                            : data.find((d) => d.id === expandedTemuan)
+                                ?.severity === "High"
+                            ? "bg-orange-100 text-orange-800"
+                            : data.find((d) => d.id === expandedTemuan)
+                                ?.severity === "Medium"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {data.find((d) => d.id === expandedTemuan)?.severity ||
+                          "-"}
+                      </span>
+                    </div>
+
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-600 block mb-1">
+                        👤 Inspector
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {data.find((d) => d.id === expandedTemuan)?.inspector ||
+                          "-"}
+                      </span>
+                    </div>
+
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-600 block mb-1">
+                        📅 Tanggal
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {formatCompactDate(
+                          data.find((d) => d.id === expandedTemuan)
+                            ?.tanggalTemuan
+                        )}
+                      </span>
+                    </div>
+
+                    {data.find((d) => d.id === expandedTemuan)
+                      ?.kategoriTemuan && (
+                      <div className="bg-blue-50 p-3 rounded-lg col-span-2">
+                        <span className="text-xs text-gray-600 block mb-1">
+                          🏷️ Kategori
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {
+                            data.find((d) => d.id === expandedTemuan)
+                              ?.kategoriTemuan
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedTemuan(null);
+                    }}
+                    type="button"
+                    className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm hover:shadow-md"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -2366,63 +2601,79 @@ export default function InspeksiKPCPage() {
       <AnimatePresence>
         {showImageGallery && (
           <div
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
             onClick={closeImageGallery}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="relative max-w-4xl w-full"
+              className="relative w-full h-full max-w-7xl max-h-[90vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={closeImageGallery}
-                className="absolute -top-12 right-0 text-white hover:text-gray-300 flex items-center gap-2"
-              >
-                <X className="w-6 h-6" />
-                <span>Close (ESC)</span>
-              </button>
-
-              <div className="absolute -top-12 left-0 text-white text-sm">
-                {currentImageIndex + 1} / {viewingImages.length}
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-white text-lg font-medium">
+                  {currentImageIndex + 1} / {viewingImages.length}
+                </div>
+                <button
+                  onClick={closeImageGallery}
+                  className="text-white hover:text-gray-300 flex items-center gap-2 bg-black/50 px-4 py-2 rounded-lg hover:bg-black/70 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                  <span>Close (ESC)</span>
+                </button>
               </div>
 
-              <div className="bg-white rounded-lg overflow-hidden">
+              {/* Main Image Container - FIXED ASPECT RATIO */}
+              <div className="relative flex-1 bg-black/30 rounded-lg overflow-hidden flex items-center justify-center">
                 <img
                   src={viewingImages[currentImageIndex]}
                   alt={`Image ${currentImageIndex + 1}`}
-                  className="w-full h-auto max-h-[80vh] object-contain"
+                  className="max-w-full max-h-full w-auto h-auto object-contain"
+                  style={{
+                    imageRendering: "crisp-edges" as any, // ✅ FIXED: Use 'crisp-edges' or 'pixelated'
+                  }}
                 />
+
+                {/* Navigation Arrows */}
+                {viewingImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        prevImage();
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-4 transition-all hover:scale-110"
+                      title="Previous (←)"
+                    >
+                      <ChevronDown className="w-6 h-6 rotate-90" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nextImage();
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-4 transition-all hover:scale-110"
+                      title="Next (→)"
+                    >
+                      <ChevronDown className="w-6 h-6 -rotate-90" />
+                    </button>
+                  </>
+                )}
               </div>
 
+              {/* Thumbnail Strip - FIXED ASPECT RATIO */}
               {viewingImages.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-3"
-                  >
-                    <ChevronDown className="w-6 h-6 rotate-90" />
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-3"
-                  >
-                    <ChevronDown className="w-6 h-6 -rotate-90" />
-                  </button>
-                </>
-              )}
-
-              {viewingImages.length > 1 && (
-                <div className="mt-4 flex gap-2 justify-center overflow-x-auto pb-2">
+                <div className="mt-4 flex gap-2 justify-center overflow-x-auto pb-2 px-2">
                   {viewingImages.map((img, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden ${
+                      className={`flex-shrink-0 w-24 h-16 rounded-lg border-2 overflow-hidden transition-all ${
                         index === currentImageIndex
-                          ? "border-blue-500"
-                          : "border-gray-400"
+                          ? "border-blue-500 ring-2 ring-blue-400"
+                          : "border-gray-400 hover:border-gray-300"
                       }`}
                     >
                       <img
