@@ -1,4 +1,3 @@
-// App.tsx - FIXED VERSION WITH PROPER PERMISSION CHECK
 import React, { useState, useEffect } from "react";
 import {
   HashRouter as Router,
@@ -22,6 +21,7 @@ import SettingsPage from "./components/SettingsPage";
 import InspeksiKPCPage from "./components/InspeksiKPCPage";
 import NecHistoryPage from "./components/NEC/NecHistoryPage";
 import NecTowerLinkManagement from "./components/NEC/NecTowerLinkManagement";
+import SwrSignalPage from "./components/Swr/SwrSignalPage";
 import { Toaster } from "./components/ui/toaster";
 
 // ✅ HELPER: CEK PERMISSION DARI LOCALSTORAGE
@@ -186,6 +186,8 @@ function AppContent() {
           />
 
           <Route path="/nec-management" element={<NecTowerLinkManagement />} />
+
+          <Route path="/swr-signal" element={<SwrSignalPage />} />
 
           <Route
             path="/settings"

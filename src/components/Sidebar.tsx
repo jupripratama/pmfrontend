@@ -18,6 +18,7 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
+  Radio,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -85,6 +86,14 @@ const navItems: NavItem[] = [
     id: "nec-history",
     permission: "nec.signal.view",
   },
+  {
+    name: "SWR Signal",
+    path: "/swr-signal",
+    icon: Radio,
+    id: "swr-signal",
+    permission: "swr-signal.view",
+    forAll: true, // Temporarily show to all users for testing
+  },
 ];
 
 const callRecordsMenu: NavItem[] = [
@@ -124,7 +133,7 @@ export default function Sidebar({
   const [isCallRecordsOpen, setIsCallRecordsOpen] = useState(true);
 
   const filteredNavItems = navItems.filter(
-    (item) => !item.permission || hasPermission(item.permission)
+    (item) => item.forAll || !item.permission || hasPermission(item.permission)
   );
   const filteredCallRecords = callRecordsMenu.filter(
     (item) => !item.permission || hasPermission(item.permission)

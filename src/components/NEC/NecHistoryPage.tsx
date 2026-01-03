@@ -217,6 +217,36 @@ const NecHistoryPage: React.FC = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
+        const towers = await necSignalApi.getTowers();
+        const query = {
+          page: 1,
+          pageSize: 15,
+          search: "",
+          necLinkId: undefined,
+        };
+        const histories = await necSignalApi.getHistories(query);
+        // Set state success
+      } catch (error) {
+        console.error("NEC Error:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Gagal memuat data. Coba lagi.";
+        toast({
+          title: "Error",
+          description: errorMessage.includes("Network Error")
+            ? "Koneksi tidak stabil. Coba refresh atau ganti jaringan."
+            : "Gagal memuat data. Coba lagi.",
+          variant: "destructive",
+        });
+      }
+    };
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
         setIsLoading(true);
         await Promise.all([fetchHistories(), fetchTowersAndLinks()]);
       } catch (error) {
